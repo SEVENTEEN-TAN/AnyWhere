@@ -333,3 +333,32 @@ body.layout-wide .msg.ai {
         padding-bottom: 120px;
     }
 }
+
+/* Gemini Login/Refresh Links in Error Messages */
+.gemini-link {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 8px 16px;
+    background: var(--primary);
+    color: #fff !important;
+    text-decoration: none;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.gemini-link:hover {
+    background: var(--primary-dark, #1a5dd4);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+}
+
+[data-theme="light"] .gemini-link {
+    background: #4285f4;
+}
+
+[data-theme="light"] .gemini-link:hover {
+    background: #3367d6;
+}

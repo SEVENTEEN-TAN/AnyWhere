@@ -103,11 +103,12 @@ export class GeminiSessionManager {
                 await chrome.storage.local.remove(['geminiContext']);
 
                 const currentIndex = this.auth.getCurrentIndex();
+                const loginUrl = `https://gemini.google.com/u/${currentIndex}/`;
 
                 if (isZh) {
-                    errorMessage = `账号 (Index: ${currentIndex}) 未登录或会话已过期。请前往 <a href="https://gemini.google.com/u/${currentIndex}/" target="_blank" style="color: inherit; text-decoration: underline;">gemini.google.com/u/${currentIndex}/</a> 登录。`;
+                    errorMessage = `🔑 账号 (Index: ${currentIndex}) 未登录或会话已过期。<br><a href="#" class="gemini-link" data-url="${loginUrl}">👉 点击前往 Gemini 登录</a>`;
                 } else {
-                    errorMessage = `Account (Index: ${currentIndex}) not logged in. Please log in at <a href="https://gemini.google.com/u/${currentIndex}/" target="_blank" style="color: inherit; text-decoration: underline;">gemini.google.com/u/${currentIndex}/</a>.`;
+                    errorMessage = `🔑 Account (Index: ${currentIndex}) not logged in.<br><a href="#" class="gemini-link" data-url="${loginUrl}">👉 Click to open Gemini login</a>`;
                 }
             } else if (errorMessage.includes("Rate limited") || errorMessage.includes("请求过于频繁")) {
                 if (isZh) {
@@ -116,16 +117,18 @@ export class GeminiSessionManager {
                     errorMessage = "⏳ Too many requests. Gemini has temporarily limited access. Please wait a few minutes.";
                 }
             } else if (errorMessage.includes("Empty response") || errorMessage.includes("服务器无响应")) {
+                const refreshUrl = "https://gemini.google.com/";
                 if (isZh) {
-                    errorMessage = "🔌 服务器无响应。请检查网络连接，或尝试刷新 Gemini 网页。";
+                    errorMessage = `🔌 服务器无响应。<br><a href="#" class="gemini-link" data-url="${refreshUrl}">👉 点击前往 Gemini 刷新</a>`;
                 } else {
-                    errorMessage = "🔌 No response from server. Please check your network or refresh the Gemini page.";
+                    errorMessage = `🔌 No response from server.<br><a href="#" class="gemini-link" data-url="${refreshUrl}">👉 Click to refresh Gemini</a>`;
                 }
             } else if (errorMessage.includes("Invalid response") || errorMessage.includes("响应解析失败")) {
+                const refreshUrl = "https://gemini.google.com/";
                 if (isZh) {
-                    errorMessage = "⚠️ 响应解析失败。请前往 <a href=\"https://gemini.google.com\" target=\"_blank\" style=\"color: inherit; text-decoration: underline;\">gemini.google.com</a> 刷新页面后重试。";
+                    errorMessage = `⚠️ 响应解析失败。<br><a href="#" class="gemini-link" data-url="${refreshUrl}">👉 点击前往 Gemini 刷新后重试</a>`;
                 } else {
-                    errorMessage = "⚠️ Failed to parse response. Please visit <a href=\"https://gemini.google.com\" target=\"_blank\" style=\"color: inherit; text-decoration: underline;\">gemini.google.com</a> and refresh, then retry.";
+                    errorMessage = `⚠️ Failed to parse response.<br><a href="#" class="gemini-link" data-url="${refreshUrl}">👉 Click to refresh Gemini and retry</a>`;
                 }
             }
 

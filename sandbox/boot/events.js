@@ -171,4 +171,20 @@ export function bindAppEvents(app, ui, setResizeRef) {
             if (inputFn) inputFn.focus();
         }
     });
+
+    // Handle custom Gemini links (opens in background tab)
+    document.addEventListener('click', (e) => {
+        const link = e.target.closest('.gemini-link');
+        if (link) {
+            e.preventDefault();
+            const url = link.dataset.url;
+            if (url) {
+                // Send to parent (sidepanel) to forward to background
+                window.parent.postMessage({
+                    action: 'OPEN_TAB_BACKGROUND',
+                    url: url
+                }, '*');
+            }
+        }
+    });
 }

@@ -20,8 +20,8 @@ let uiIsReady = false;
 
 // Start fetching bulk data (sessions) immediately
 chrome.storage.local.get([
-    'geminiSessions', 
-    'pendingSessionId', 
+    'geminiSessions',
+    'pendingSessionId',
     'geminiShortcuts',
     'geminiModel',
     'pendingImage',
@@ -44,10 +44,10 @@ function trySendInitData() {
 
     const win = iframe.contentWindow;
     if (!win) return;
-    
+
     // 2. Push Data (if ready)
     if (preFetchedData) {
-        
+
         // Push Sidebar Behavior (Must be sent before RESTORE_SESSIONS to ensure logic applies correctly)
         win.postMessage({
             action: 'RESTORE_SIDEBAR_BEHAVIOR',
@@ -71,7 +71,7 @@ function trySendInitData() {
             action: 'RESTORE_MODEL',
             payload: preFetchedData.geminiModel || 'gemini-2.5-flash'
         }, '*');
-        
+
         // Push Text Selection State
         win.postMessage({
             action: 'RESTORE_TEXT_SELECTION',
@@ -153,16 +153,22 @@ window.addEventListener('message', (event) => {
         trySendInitData();
         return;
     }
-    
+
     // --- Open Full Page in New Tab ---
     if (action === 'OPEN_FULL_PAGE') {
         const url = chrome.runtime.getURL('sidepanel/index.html');
         chrome.tabs.create({ url });
         return;
     }
-    
+
+    // --- Open Tab in Background (without switching focus) ---
+    if (action === 'OPEN_TAB_BACKGROUND') {
+        chrome.runtime.sendMessage({ action: 'OPEN_TAB_BACKGROUND', url: e.data.url });
+        return;
+    }
+
     // --- Standard Message Forwarding ---
-    
+
     if (action === 'FORWARD_TO_BACKGROUND') {
         chrome.runtime.sendMessage(payload)
             .then(response => {
@@ -178,7 +184,7 @@ window.addEventListener('message', (event) => {
                 console.warn("Error forwarding to background:", err);
             });
     }
-    
+
     // --- Data Requests from Sandbox ---
 
     if (action === 'DOWNLOAD_IMAGE') {
@@ -225,7 +231,7 @@ window.addEventListener('message', (event) => {
             }, '*');
         }
     }
-    
+
     if (action === 'GET_TEXT_SELECTION') {
         chrome.storage.local.get(['geminiTextSelectionEnabled'], (res) => {
             const enabled = res.geminiTextSelectionEnabled !== false; // Default true
@@ -263,18 +269,18 @@ window.addEventListener('message', (event) => {
     }
 
     // --- Sync Storage Updates back to Local Cache (For Speed next time) ---
-    
+
     if (action === 'SAVE_SESSIONS') {
         chrome.storage.local.set({ geminiSessions: payload });
-        if(preFetchedData) preFetchedData.geminiSessions = payload;
+        if (preFetchedData) preFetchedData.geminiSessions = payload;
     }
     if (action === 'SAVE_SHORTCUTS') {
         chrome.storage.local.set({ geminiShortcuts: payload });
-        if(preFetchedData) preFetchedData.geminiShortcuts = payload;
+        if (preFetchedData) preFetchedData.geminiShortcuts = payload;
     }
     if (action === 'SAVE_MODEL') {
         chrome.storage.local.set({ geminiModel: payload });
-        if(preFetchedData) preFetchedData.geminiModel = payload;
+        if (preFetchedData) preFetchedData.geminiModel = payload;
     }
     if (action === 'SAVE_THEME') {
         chrome.storage.local.set({ geminiTheme: payload });
@@ -286,26 +292,26 @@ window.addEventListener('message', (event) => {
     }
     if (action === 'SAVE_TEXT_SELECTION') {
         chrome.storage.local.set({ geminiTextSelectionEnabled: payload });
-        if(preFetchedData) preFetchedData.geminiTextSelectionEnabled = payload;
+        if (preFetchedData) preFetchedData.geminiTextSelectionEnabled = payload;
     }
     if (action === 'SAVE_IMAGE_TOOLS') {
         chrome.storage.local.set({ geminiImageToolsEnabled: payload });
-        if(preFetchedData) preFetchedData.geminiImageToolsEnabled = payload;
+        if (preFetchedData) preFetchedData.geminiImageToolsEnabled = payload;
     }
     if (action === 'SAVE_SIDEBAR_BEHAVIOR') {
         chrome.storage.local.set({ geminiSidebarBehavior: payload });
-        if(preFetchedData) preFetchedData.geminiSidebarBehavior = payload;
+        if (preFetchedData) preFetchedData.geminiSidebarBehavior = payload;
     }
     if (action === 'SAVE_ACCOUNT_INDICES') {
         chrome.storage.local.set({ geminiAccountIndices: payload });
-        if(preFetchedData) preFetchedData.geminiAccountIndices = payload;
+        if (preFetchedData) preFetchedData.geminiAccountIndices = payload;
     }
 });
 
 // Forward messages from Background to Sandbox
 chrome.runtime.onMessage.addListener((message) => {
     if (message.action === 'SESSIONS_UPDATED') {
-        if(preFetchedData) preFetchedData.geminiSessions = message.sessions;
+        if (preFetchedData) preFetchedData.geminiSessions = message.sessions;
         if (iframe.contentWindow) {
             iframe.contentWindow.postMessage({
                 action: 'RESTORE_SESSIONS',

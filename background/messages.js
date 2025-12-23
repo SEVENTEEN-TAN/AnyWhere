@@ -11,21 +11,27 @@ import { UIMessageHandler } from './handlers/ui.js';
  * @param {LogManager} logManager
  */
 export function setupMessageListener(sessionManager, imageHandler, controlManager, logManager) {
-    
+
     const sessionHandler = new SessionMessageHandler(sessionManager, imageHandler, controlManager);
     const uiHandler = new UIMessageHandler(imageHandler);
 
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        
+
         // --- LOGGING SYSTEM ---
         if (request.action === 'LOG_ENTRY') {
             logManager.add(request.entry);
             return false;
         }
-        
+
         if (request.action === 'GET_LOGS') {
             sendResponse({ logs: logManager.getLogs() });
             return true;
+        }
+
+        // Open a tab in background (without switching focus)
+        if (request.action === 'OPEN_TAB_BACKGROUND') {
+            chrome.tabs.create({ url: request.url, active: false });
+            return false;
         }
 
         // Delegate to Session Handler (Prompt, Context, Quick Ask, Browser Control)
@@ -37,7 +43,7 @@ export function setupMessageListener(sessionManager, imageHandler, controlManage
         if (uiHandler.handle(request, sender, sendResponse)) {
             return true;
         }
-        
+
         return false;
     });
 }
