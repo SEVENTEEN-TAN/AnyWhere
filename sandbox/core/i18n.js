@@ -60,6 +60,7 @@ export const translations = {
         "thinking": "Gemini is thinking...",
         "deleteChatConfirm": "Delete this chat?",
         "delete": "Delete",
+        "rename": "Rename",
         "imageSent": "Image sent",
         "selectOcr": "Select area for OCR...",
         "selectSnip": "Select area to capture...",

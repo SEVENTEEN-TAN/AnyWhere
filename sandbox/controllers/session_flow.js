@@ -13,11 +13,11 @@ export class SessionFlowController {
 
     handleNewChat() {
         if (this.app.isGenerating) this.app.prompt.cancel();
-        
+
         this.app.messageHandler.resetStream();
-        
+
         const s = this.sessionManager.createSession();
-        s.title = t('newChat'); 
+        s.title = t('newChat');
         this.switchToSession(s.id);
     }
 
@@ -26,7 +26,7 @@ export class SessionFlowController {
 
         this.app.messageHandler.resetStream();
         this.sessionManager.setCurrentId(sessionId);
-        
+
         const session = this.sessionManager.getCurrentSession();
         if (!session) return;
 
@@ -60,15 +60,25 @@ export class SessionFlowController {
             this.sessionManager.currentSessionId,
             {
                 onSwitch: (id) => this.switchToSession(id),
-                onDelete: (id) => this.handleDeleteSession(id)
+                onDelete: (id) => this.handleDeleteSession(id),
+                onRename: (id, newTitle) => this.handleRenameSession(id, newTitle)
             }
         );
+    }
+
+    handleRenameSession(sessionId, newTitle) {
+        if (!newTitle || !newTitle.trim()) return;
+        const success = this.sessionManager.renameSession(sessionId, newTitle);
+        if (success) {
+            saveSessionsToStorage(this.sessionManager.sessions);
+            this.refreshHistoryUI();
+        }
     }
 
     handleDeleteSession(sessionId) {
         const switchNeeded = this.sessionManager.deleteSession(sessionId);
         saveSessionsToStorage(this.sessionManager.sessions);
-        
+
         if (switchNeeded) {
             if (this.sessionManager.sessions.length > 0) {
                 this.switchToSession(this.sessionManager.currentSessionId);

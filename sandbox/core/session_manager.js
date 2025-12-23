@@ -57,19 +57,28 @@ export class SessionManager {
         return false;
     }
 
+    renameSession(id, newTitle) {
+        const session = this.sessions.find(s => s.id === id);
+        if (session) {
+            session.title = newTitle.substring(0, 50); // Limit length
+            return true;
+        }
+        return false;
+    }
+
     addMessage(id, role, text, attachment = null, thoughts = null) {
         const session = this.sessions.find(s => s.id === id);
         if (session) {
             const msg = { role, text };
-            
+
             if (thoughts) {
                 msg.thoughts = thoughts;
             }
-            
+
             // Handle attachments based on role
             if (role === 'user' && typeof attachment === 'string') {
                 // Backward compatibility: user attachment is usually a single base64 string
-                msg.image = attachment; 
+                msg.image = attachment;
             } else if (role === 'ai' && Array.isArray(attachment) && attachment.length > 0) {
                 // AI generated images
                 msg.generatedImages = attachment;
