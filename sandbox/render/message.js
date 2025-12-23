@@ -230,12 +230,76 @@ export function appendMessage(container, text, role, attachment = null, thoughts
                                 container.style.borderRadius = '8px';
                                 container.style.overflow = 'hidden';
                                 container.style.background = '#fafafa';
+                                container.style.position = 'relative'; // For absolute positioning of button
 
                                 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                                 svg.style.width = '100%';
                                 svg.style.height = '100%';
 
                                 container.appendChild(svg);
+
+                                // --- Add Copy Button ---
+                                const copyBtn = document.createElement('button');
+                                copyBtn.className = 'copy-btn markmap-copy-btn';
+                                copyBtn.title = 'Copy as Text';
+                                copyBtn.style.position = 'absolute';
+                                copyBtn.style.top = '10px';
+                                copyBtn.style.right = '10px';
+                                copyBtn.style.zIndex = '10';
+                                copyBtn.style.background = 'white';
+                                copyBtn.style.border = '1px solid #ccc';
+                                copyBtn.style.borderRadius = '4px';
+                                copyBtn.style.padding = '4px';
+                                copyBtn.style.cursor = 'pointer';
+                                copyBtn.style.display = 'flex';
+                                copyBtn.style.alignItems = 'center';
+                                copyBtn.style.justifyContent = 'center';
+                                copyBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+
+                                const copyIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+                                const checkIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+                                copyBtn.innerHTML = copyIcon;
+
+                                copyBtn.onclick = async () => {
+                                    try {
+                                        // Helper to decode HTML entities
+                                        const decodeHtml = (html) => {
+                                            const txt = document.createElement('textarea');
+                                            txt.innerHTML = html;
+                                            return txt.value;
+                                        };
+
+                                        // Generate hierarchical text from root node
+                                        const generateText = (node, depth = 0) => {
+                                            const indent = '  '.repeat(depth);
+                                            // Strip HTML tags (keep content)
+                                            let content = node.content.replace(/<[^>]*>/g, '');
+                                            // Decode entities (basic & numeric)
+                                            content = decodeHtml(content);
+
+                                            let text = `${indent}${content}\n`;
+                                            if (node.children && node.children.length > 0) {
+                                                node.children.forEach(child => {
+                                                    text += generateText(child, depth + 1);
+                                                });
+                                            }
+                                            return text;
+                                        };
+
+                                        const hierarchicalText = generateText(root);
+                                        await copyToClipboard(hierarchicalText.trim());
+
+                                        copyBtn.innerHTML = checkIcon;
+                                        setTimeout(() => {
+                                            copyBtn.innerHTML = copyIcon;
+                                        }, 2000);
+                                    } catch (err) {
+                                        console.error("Failed to copy mindmap text", err);
+                                    }
+                                };
+
+                                container.appendChild(copyBtn);
 
                                 // Replace the hidden source div with the chart container
                                 node.replaceWith(container);
