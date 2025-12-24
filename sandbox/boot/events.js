@@ -35,30 +35,69 @@ export function bindAppEvents(app, ui, setResizeRef) {
     // Summarize Button (Combined with MindMap)
     const summarizeBtn = document.getElementById('summarize-btn');
     if (summarizeBtn) {
-        summarizeBtn.addEventListener('click', () => {
-            const prompt = `请对当前网页内容进行深度总结，严格按以下格式输出：
+        summarizeBtn.addEventListener('click', async () => { // Make async
+            ui.setLoading(true); // Show loading immediately to give feedback
+            const { title, url } = await app.getActiveTabInfo();
+            ui.setLoading(false);
 
-## 1. 内容概要
-用2-3句话概括网页核心内容。
+            const prompt = `请将网页内容重构为一份【结构化深度研报】。
+请严格按照以下顺序和格式输出：
+
+## 1. 核心摘要
+简明扼要地概括网页的核心内容、背景及价值（100-200字）。
 
 ## 2. 知识脑图 (Markmap)
-请生成一个 **markmap** 代码块，使用标准 Markdown 列表或标题层级表示思维导图结构。
+请生成一个 **markmap** 代码块，可视化展示文章的逻辑结构。
 根节点使用一级标题 (#)，子节点使用二级标题 (##) 或 列表项 (-)。
 
 \`\`\`markmap
-# 网页核心主题
-## 关键概念A
-- 细节1
-- 细节2
-## 关键概念B
-- 细节3
-- 细节4
+# 核心主题
+## 核心板块 1
+- 关键细节 1.1
+- 关键细节 1.2
+## 核心板块 2
+...
 \`\`\`
 
-## 3. 总结
-一句话核心结论。`;
+## 3. 深度内容明细
+请像“思维导图文字化”一样，层层拆解内容。
+**要求**：必须使用 **H3 (###)** 标题列出具体细节，并在每个 H3 下填充**详尽的段落解析**（包含数据、案例、原理解释），拒绝简单的列表或一句话概括。
 
-            app.prompt.executePrompt(prompt, [], { includePageContext: true });
+### [核心板块 1：主要观点]
+#### [关键细节 1.1：具体概念]
+> 在此处深度展开...
+#### [关键细节 1.2：具体概念]
+> 在此处深度展开...
+
+### [核心板块 2：主要观点]
+...
+
+## 4. 总结与启示
+用精炼的语言总结全文，并给出核心结论。`;
+
+            const displayTitle = title ? `[${title}]` : 'Current Page';
+            const displayUrl = url ? `(${url})` : '';
+            const linkText = title && url ? `${displayTitle}${displayUrl}` : (title || url || 'Current Page');
+
+            // Add Suggestion Instructions (No visible heading, block only)
+            const promptWithSuggestions = prompt + `
+
+请根据页面内容，在回答末尾额外生成 3 个用户可能感兴趣的追问问题。
+要求：
+1. 问题应短小精悍（不超过20字），直击用户好奇心或痛点。
+2. 侧重于“如何应用”、“底层逻辑”或“反直觉的细节”。
+3. 避免宽泛的“主要内容是什么”。
+
+请严格使用以下格式封装建议问题（不要添加标题或任何其他文字，直接输出标签）：
+<suggestions>
+["问题1", "问题2", "问题3"]
+</suggestions>`;
+
+            app.prompt.executePrompt(promptWithSuggestions, [], {
+                includePageContext: true,
+                displayPrompt: `总结 ${linkText}`,
+                sessionTitle: title // Use page title as session title
+            });
         });
     }
 
@@ -212,19 +251,28 @@ export function bindAppEvents(app, ui, setResizeRef) {
         }
     });
 
-    // Handle custom Gemini links (opens in background tab)
-    document.addEventListener('click', (e) => {
-        const link = e.target.closest('.gemini-link');
-        if (link) {
-            e.preventDefault();
-            const url = link.dataset.url;
-            if (url) {
-                // Send to parent (sidepanel) to forward to background
-                window.parent.postMessage({
-                    action: 'OPEN_TAB_BACKGROUND',
-                    url: url
-                }, '*');
+
+
+    // Handle Suggestions Click
+    document.addEventListener('gemini-suggestion-click', (e) => {
+        const text = e.detail;
+        if (text) {
+            const inputFn = document.getElementById('prompt');
+            if (inputFn) {
+                // 1. Force enable Page Context if not already enabled
+                // Suggestions are usually derived from page content, so context is needed.
+                const contextBtn = document.getElementById('page-context-btn');
+                if (contextBtn && !contextBtn.classList.contains('active')) {
+                    // Programmatically activate context
+                    app.togglePageContext(true); 
+                }
+
+                // 2. Fill and Send
+                inputFn.value = text;
+                const sendBtn = document.getElementById('send');
+                if (sendBtn) sendBtn.click();
             }
         }
     });
+
 }

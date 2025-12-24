@@ -66,10 +66,14 @@ export class SessionManager {
         return false;
     }
 
-    addMessage(id, role, text, attachment = null, thoughts = null) {
+    addMessage(id, role, text, attachment = null, thoughts = null, model = null) {
         const session = this.sessions.find(s => s.id === id);
         if (session) {
             const msg = { role, text };
+
+            if (model) {
+                msg.model = model;
+            }
 
             if (thoughts) {
                 msg.thoughts = thoughts;

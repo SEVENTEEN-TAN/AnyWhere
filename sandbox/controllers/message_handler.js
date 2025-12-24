@@ -214,7 +214,8 @@ export class MessageHandler {
         if (!this.streamingBubble) {
             // Get current MCP IDs from controller
             const mcpIds = this.app.mcp ? this.app.mcp.getSelectedMcpIds() : [];
-            this.streamingBubble = appendMessage(this.ui.historyDiv, "", 'ai', null, "", mcpIds);
+            const currentModel = this.app.getSelectedModel();
+            this.streamingBubble = appendMessage(this.ui.historyDiv, "", 'ai', null, "", mcpIds, currentModel);
         }
 
         // Update content if text or thoughts exist
@@ -237,6 +238,8 @@ export class MessageHandler {
             // The background script saves the AI response to storage and broadcasts 'SESSIONS_UPDATED'.
             // The AppController handles that broadcast to keep data in sync.
             // We just ensure the UI is visually complete here.
+
+            const currentModel = this.app.getSelectedModel(); // Pass model for display
 
             if (request.status === 'success') {
                 // Although session data comes from background, we might want to ensure context matches locally
@@ -270,7 +273,7 @@ export class MessageHandler {
                 this.streamingBubble = null;
             } else {
                 // Fallback if no stream occurred (or single short response)
-                appendMessage(this.ui.historyDiv, request.text, 'ai', request.images, request.thoughts);
+                appendMessage(this.ui.historyDiv, request.text, 'ai', request.images, request.thoughts, mcpIds, currentModel);
             }
         }
     }

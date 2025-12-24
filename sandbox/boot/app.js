@@ -17,7 +17,7 @@ export function initAppMode() {
 
     // 2. Signal Ready Immediately
     window.parent.postMessage({ action: 'UI_READY' }, '*');
-    
+
     // 3. Initialize Message Bridge
     const bridge = new AppMessageBridge();
 
@@ -26,8 +26,12 @@ export function initAppMode() {
         applyTranslations();
     });
 
-    // 5. Async Bootstapping
+    // 5. Async Bootstrapping
     (async () => {
+        // --- CRITICAL: Load dependencies FIRST before any rendering ---
+        await loadLibs();
+        configureMarkdown(); // Ensure marked is configured
+
         // Dynamic Import of Application Logic
         const [
             { ImageManager },
@@ -73,21 +77,13 @@ export function initAppMode() {
 
         // Initialize Controller
         const app = new AppController(sessionManager, ui, imageManager);
-        
+
         // Connect Bridge to App Instances
         bridge.setUI(ui);
         bridge.setApp(app);
 
         // Bind DOM Events
         bindAppEvents(app, ui, (fn) => bridge.setResizeFn(fn));
-        
-        // Trigger dependency load in parallel, and re-render if needed when done
-        loadLibs().then(() => {
-            if (app) app.rerender();
-        });
-
-        // Configure Markdown (Initial pass, might be skipped if marked not loaded yet)
-        configureMarkdown();
 
     })();
 }

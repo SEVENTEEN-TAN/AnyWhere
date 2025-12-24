@@ -37,6 +37,8 @@ export class PromptController {
         const includePageContext = options.includePageContext !== undefined ? options.includePageContext : this.app.pageContextActive;
         const enableBrowserControl = options.enableBrowserControl !== undefined ? options.enableBrowserControl : this.app.browserControlActive;
         const mcpIds = options.mcpIds || [];
+        // New: displayPrompt allows showing a different message in UI/Storage than what is sent to LLM
+        const displayPrompt = options.displayPrompt || text;
 
         if (!this.sessionManager.currentSessionId) {
             this.sessionManager.createSession();
@@ -47,7 +49,8 @@ export class PromptController {
 
         // Update Title if needed
         if (session.messages.length === 0) {
-            const titleUpdate = this.sessionManager.updateTitle(currentId, text || t('imageSent'));
+            const newTitle = options.sessionTitle || displayPrompt || t('imageSent');
+            const titleUpdate = this.sessionManager.updateTitle(currentId, newTitle);
             if (titleUpdate) this.app.sessionFlow.refreshHistoryUI();
         }
 
@@ -56,14 +59,14 @@ export class PromptController {
 
         appendMessage(
             this.ui.historyDiv,
-            text,
+            displayPrompt,
             'user',
             displayAttachments.length > 0 ? displayAttachments : null,
             null,  // thoughts
             mcpIds // MCP IDs
         );
 
-        this.sessionManager.addMessage(currentId, 'user', text, displayAttachments.length > 0 ? displayAttachments : null);
+        this.sessionManager.addMessage(currentId, 'user', displayPrompt, displayAttachments.length > 0 ? displayAttachments : null);
 
         saveSessionsToStorage(this.sessionManager.sessions);
         this.app.sessionFlow.refreshHistoryUI();

@@ -101,6 +101,21 @@ export class AppController {
         this.sessionFlow.handleDeleteSession(sessionId);
     }
 
+    async getActiveTabInfo() {
+        return new Promise((resolve) => {
+            this.pendingTabInfoResolver = resolve;
+            sendToBackground({ action: "GET_ACTIVE_TAB_INFO" });
+
+            // Timeout safety
+            setTimeout(() => {
+                if (this.pendingTabInfoResolver) {
+                    this.pendingTabInfoResolver({ title: "", url: "" });
+                    this.pendingTabInfoResolver = null;
+                }
+            }, 2000);
+        });
+    }
+
     handleCancel() {
         this.prompt.cancel();
     }
@@ -163,6 +178,13 @@ export class AppController {
         if (action === 'BACKGROUND_MESSAGE') {
             if (payload.action === 'SWITCH_SESSION') {
                 this.switchToSession(payload.sessionId);
+                return;
+            }
+            if (payload.action === 'ACTIVE_TAB_INFO') {
+                if (this.pendingTabInfoResolver) {
+                    this.pendingTabInfoResolver(payload);
+                    this.pendingTabInfoResolver = null;
+                }
                 return;
             }
             await this.messageHandler.handle(payload);

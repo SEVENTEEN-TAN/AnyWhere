@@ -248,14 +248,25 @@ body.layout-wide .msg.ai {
 /* Headings */
 .msg.ai h1,
 .msg.ai h2,
-.msg.ai h3 {
+.msg.ai h3,
+.msg.ai h4,
+.msg.ai h5,
+.msg.ai h6 {
     margin: 24px 0 12px 0;
     font-weight: 600;
     color: var(--text-primary);
+    line-height: 1.4;
 }
 
 .msg.ai h3 {
     font-size: 16px;
+}
+
+.msg.ai h4 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-top: 18px;
+    margin-bottom: 8px;
 }
 
 /* Code Blocks New Structure */
@@ -347,6 +358,20 @@ body.layout-wide .msg.ai {
     border-radius: 6px;
     font-size: 0.9em;
     font-weight: 500;
+}
+
+/* Bold Text */
+.msg.ai strong,
+.msg.ai b {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Italic Text */
+.msg.ai em,
+.msg.ai i {
+    font-style: italic;
+    color: var(--text-primary);
 }
 
 /* Lists */
@@ -461,4 +486,36 @@ body.layout-wide .msg.ai {
 
 .menu-item:hover svg {
     color: var(--primary);
+}
+
+/* Suggestion Buttons (Pills inside Bubble) */
+.suggestion-pill-btn {
+    background: var(--bg-body);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.4;
+}
+
+.suggestion-pill-btn:hover {
+    background: var(--btn-hover);
+    color: var(--primary);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.suggestions-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+    width: 100%;
 }
