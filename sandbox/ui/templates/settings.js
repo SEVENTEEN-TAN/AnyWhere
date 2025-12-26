@@ -62,32 +62,6 @@ export const SettingsTemplate = `
 
                 <div class="setting-group">
                     <h4 style="display:flex; align-items:center; gap:6px;">
-                        <span>Google Gems (Beta)</span>
-                        <span class="badge" style="background:#2196F3; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">NEW</span>
-                    </h4>
-                    <p class="setting-desc" style="margin-bottom: 8px;">Select a Gem to use when 'Gem' model is chosen.</p>
-                    
-                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                        <button id="refresh-gems-btn" class="btn-secondary" style="padding: 8px 12px; font-size: 13px;">
-                            <span>🔄</span> Refresh Gems
-                        </button>
-                        <span id="gems-status" style="color: var(--text-secondary); font-size: 12px; align-self: center;"></span>
-                    </div>
-                    
-                    <div class="shortcut-row" style="margin-bottom: 8px;">
-                        <select id="gem-select" class="shortcut-input" style="width: 100%; font-family: inherit; padding: 8px;">
-                            <option value="">-- No Gem Selected --</option>
-                        </select>
-                    </div>
-                    
-                    <div class="shortcut-row" style="margin-bottom: 0;">
-                        <label style="font-size: 12px; color: var(--text-secondary);">Or enter Gem ID manually:</label>
-                        <input type="text" id="gem-id-input" class="shortcut-input" style="width: 100%; text-align: left; font-family: monospace;" placeholder="Gem ID (e.g., BC00...)">
-                    </div>
-                </div>
-
-                <div class="setting-group">
-                    <h4 style="display:flex; align-items:center; gap:6px;">
                         <span>Model Context Protocol (MCP)</span>
                         <span class="badge" style="background:#4caf50; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">BETA</span>
                     </h4>

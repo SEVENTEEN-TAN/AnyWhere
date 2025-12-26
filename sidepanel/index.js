@@ -92,12 +92,6 @@ function trySendInitData() {
             payload: preFetchedData.geminiAccountIndices || "0"
         }, '*');
 
-        // Push Gem ID
-        win.postMessage({
-            action: 'RESTORE_GEM_ID',
-            payload: preFetchedData.gemini_gem_id || ""
-        }, '*');
-
         // Handle Pending Session Switch
         if (preFetchedData.pendingSessionId) {
             win.postMessage({
@@ -298,18 +292,6 @@ window.addEventListener('message', (event) => {
                 iframe.contentWindow.postMessage({
                     action: 'RESTORE_ACCOUNT_INDICES',
                     payload: indices
-                }, '*');
-            }
-        });
-    }
-
-    if (action === 'GET_GEM_ID') {
-        chrome.storage.local.get(['gemini_gem_id'], (res) => {
-            const val = res.gemini_gem_id || "";
-            if (iframe.contentWindow) {
-                iframe.contentWindow.postMessage({
-                    action: 'RESTORE_GEM_ID',
-                    payload: val
                 }, '*');
             }
         });

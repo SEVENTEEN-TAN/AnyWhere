@@ -73,6 +73,9 @@
                     this.storedGemId = result.gemini_gem_id;
                 }
             });
+            
+            // Load Gems list and populate model selector
+            this.loadGemsList();
 
             // Listen for settings changes
             chrome.storage.onChanged.addListener((changes, area) => {
@@ -150,6 +153,67 @@
 
             this.currentMode = 'ask'; // 重置模式
             this.visible = true; // Ensure logic knows window is visible
+        }
+        
+        async loadGemsList() {
+            try {
+                const response = await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Timeout')), 10000);
+                    
+                    chrome.runtime.sendMessage(
+                        { action: 'FETCH_GEMS_LIST', userIndex: '0', forceRefresh: false },
+                        (response) => {
+                            clearTimeout(timeout);
+                            resolve(response);
+                        }
+                    );
+                });
+                
+                if (response && response.gems && response.gems.length > 0) {
+                    console.log(`[ToolbarController] Loaded ${response.gems.length} Gems`);
+                    this.populateGemsToModelSelector(response.gems);
+                }
+            } catch (error) {
+                console.warn('[ToolbarController] Failed to load Gems:', error);
+            }
+        }
+        
+        populateGemsToModelSelector(gems) {
+            const modelSelect = this.ui.elements?.modelSelect;
+            if (!modelSelect) {
+                console.warn('[ToolbarController] Model select not found');
+                return;
+            }
+            
+            // Remove old Gem options
+            const optionsToRemove = [];
+            for (let i = 0; i < modelSelect.options.length; i++) {
+                if (modelSelect.options[i].value.startsWith('gem:')) {
+                    optionsToRemove.push(modelSelect.options[i]);
+                }
+            }
+            optionsToRemove.forEach(opt => opt.remove());
+            
+            // Add optgroup for Gems
+            let gemGroup = modelSelect.querySelector('optgroup[label="Google Gems"]');
+            if (!gemGroup) {
+                gemGroup = document.createElement('optgroup');
+                gemGroup.label = 'Google Gems';
+                modelSelect.appendChild(gemGroup);
+            } else {
+                gemGroup.innerHTML = '';
+            }
+            
+            // Add Gem options
+            gems.forEach(gem => {
+                const option = document.createElement('option');
+                option.value = `gem:${gem.id}`;
+                option.textContent = gem.name;
+                option.title = gem.description || gem.name;
+                gemGroup.appendChild(option);
+            });
+            
+            console.log(`[ToolbarController] Populated ${gems.length} Gems to model selector`);
         }
 
         handleGeneratedImageResult(request) {

@@ -1,6 +1,6 @@
 
 // sandbox/ui/settings.js
-import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, saveAccountIndicesToStorage, requestAccountIndicesFromStorage, requestGemIdFromStorage, saveGemIdToStorage, sendToBackground } from '../../lib/messaging.js';
+import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, saveAccountIndicesToStorage, requestAccountIndicesFromStorage, sendToBackground } from '../../lib/messaging.js';
 import { setLanguagePreference, getLanguagePreference } from '../core/i18n.js';
 import { SettingsView } from './settings/view.js';
 import { DEFAULT_SHORTCUTS } from '../../lib/constants.js';
@@ -16,7 +16,6 @@ export class SettingsController {
         this.textSelectionEnabled = true;
         this.imageToolsEnabled = true;
         this.accountIndices = "0";
-        this.gemId = ""; // Gem ID state
 
         // Initialize View
         this.view = new SettingsView({
@@ -31,8 +30,7 @@ export class SettingsController {
             onImageToolsChange: (val) => { this.imageToolsEnabled = (val === 'on' || val === true); saveImageToolsToStorage(this.imageToolsEnabled); },
             onSidebarBehaviorChange: (val) => saveSidebarBehaviorToStorage(val),
             onDownloadLogs: () => this.downloadLogs(),
-            onSaveMcp: (json) => this.saveMcpConfig(json),
-            onRefreshGems: () => this.refreshGemsList()
+            onSaveMcp: (json) => this.saveMcpConfig(json)
         });
 
         // External Trigger Binding
@@ -94,24 +92,16 @@ export class SettingsController {
         this.view.setLanguageValue(getLanguagePreference());
         this.view.setToggles(this.textSelectionEnabled, this.imageToolsEnabled);
         this.view.setAccountIndices(this.accountIndices);
-        this.view.setGemId(this.gemId); // Set Gem ID in view
 
         // Refresh from storage
         requestTextSelectionFromStorage();
         requestImageToolsFromStorage();
         requestAccountIndicesFromStorage();
 
-        // Load Gem ID
-        // Load Gem ID
-        requestGemIdFromStorage();
-
         // Fetch MCP Config
         this.fetchMcpConfig();
 
         this.fetchGithubStars();
-        
-        // Auto-load Gems list when opening settings
-        this.refreshGemsList(false); // false = don't force refresh, use cache if available
     }
 
     saveSettings(data) {
@@ -132,11 +122,6 @@ export class SettingsController {
         this.accountIndices = val;
         const cleaned = val.replace(/[^0-9,]/g, '');
         saveAccountIndicesToStorage(cleaned);
-
-        // Gem ID
-        // Gem ID
-        this.gemId = data.gemId || "";
-        saveGemIdToStorage(this.gemId);
     }
 
     resetSettings() {
@@ -248,62 +233,5 @@ export class SettingsController {
             return;
         }
         sendToBackground({ action: 'MCP_SAVE_CONFIG', json: jsonStr });
-    }
-
-    async refreshGemsList(forceRefresh = true) {
-        this.view.showGemsStatus('Loading Gems...', false);
-        console.log('[Settings] Refreshing Gems list, forceRefresh:', forceRefresh);
-        
-        try {
-            // Send request via postMessage (sandbox can't use chrome.runtime directly)
-            const response = await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => {
-                    reject(new Error('Request timeout after 15 seconds'));
-                }, 15000);
-                
-                const messageId = `gems_${Date.now()}`;
-                
-                const handleResponse = (event) => {
-                    if (event.data.action === 'GEMS_LIST_RESPONSE' && event.data.messageId === messageId) {
-                        clearTimeout(timeout);
-                        window.removeEventListener('message', handleResponse);
-                        resolve(event.data.response);
-                    }
-                };
-                
-                window.addEventListener('message', handleResponse);
-                
-                // Send to parent (sidepanel)
-                window.parent.postMessage({
-                    action: 'FETCH_GEMS_LIST',
-                    messageId: messageId,
-                    userIndex: this.accountIndices || '0',
-                    forceRefresh: forceRefresh
-                }, '*');
-            });
-            
-            console.log('[Settings] Gems response received:', response);
-            
-            if (response && response.gems && response.gems.length > 0) {
-                this.view.populateGemsList(response.gems);
-                this.view.showGemsStatus(`Found ${response.gems.length} Gems`, false);
-                
-                // Clear status after 3 seconds
-                setTimeout(() => {
-                    this.view.clearGemsStatus();
-                }, 3000);
-            } else if (response && response.error) {
-                console.error('[Settings] Gems API returned error:', response.error);
-                this.view.showGemsStatus(`Error: ${response.error}`, true);
-            } else {
-                console.warn('[Settings] No Gems found in response');
-                this.view.showGemsStatus('No Gems found. You can still enter Gem ID manually below.', false);
-                // Don't clear this message automatically
-            }
-        } catch (error) {
-            console.error('[Settings] Error fetching Gems:', error);
-            console.error('[Settings] Error stack:', error.stack);
-            this.view.showGemsStatus(`Failed to load Gems: ${error.message}`, true);
-        }
     }
 }

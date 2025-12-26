@@ -78,11 +78,6 @@ export class AppMessageBridge {
             this.ui.settings.updateAccountIndices(payload);
             return;
         }
-        if (action === 'RESTORE_GEM_ID') {
-            this.ui.settings.gemId = payload || "";
-            this.ui.settings.view.setGemId(payload || "");
-            return;
-        }
 
         // Forward general messages to App Controller
         this.app.handleIncomingMessage(event);

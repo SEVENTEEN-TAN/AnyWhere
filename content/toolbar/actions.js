@@ -140,19 +140,19 @@ class ToolbarActions {
     }
 
     handleSubmitAsk(question, context, sessionId = null, model = "gemini-2.5-flash", gemId = null) {
+        // Extract Gem ID from model if it's in the format "gem:ID"
+        let actualModel = model;
+        let actualGemId = gemId;
+        
+        if (model && model.startsWith('gem:')) {
+            actualGemId = model.substring(4); // Extract ID after "gem:"
+            actualModel = 'gem'; // Use 'gem' as the model
+        }
+        
         // If Gem model is selected, ensure we have a Gem ID
-        if (model === 'gem' && !gemId) {
-            // Try to get from storage
-            chrome.storage.local.get(['gemini_gem_id'], (result) => {
-                const storedGemId = result.gemini_gem_id || null;
-                if (!storedGemId) {
-                    console.warn('[ToolbarActions] Gem model selected but no Gem ID configured!');
-                    this.ui.showError(this.t.errors?.noGemId || 'Please configure a Gem ID in settings');
-                    return;
-                }
-                // Retry with stored Gem ID
-                this.handleSubmitAsk(question, context, sessionId, model, storedGemId);
-            });
+        if (actualModel === 'gem' && !actualGemId) {
+            console.warn('[ToolbarActions] Gem model selected but no Gem ID available!');
+            this.ui.showError(this.t.errors?.noGemId || 'Please select a Gem from the model selector');
             return;
         }
 
@@ -173,11 +173,10 @@ class ToolbarActions {
         const msg = {
             action: "QUICK_ASK",
             text: prompt,
-            model: model,
-            sessionId: sessionId,
+            model: actualModel,
             sessionId: sessionId,
             includePageContext: includePageContext,
-            gemId: gemId
+            gemId: actualGemId
         };
 
         this.lastRequest = msg;

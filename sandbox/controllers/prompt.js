@@ -28,7 +28,7 @@ export class PromptController {
             includePageContext: this.app.pageContextActive,
             enableBrowserControl: this.app.browserControlActive,
             mcpIds: this.app.mcp.getSelectedMcpIds(),
-            gemId: this.app.ui.settings.gemId
+            gemId: this.app.getSelectedGemId() // Get Gem ID from selected model
         });
     }
 
@@ -75,14 +75,11 @@ export class PromptController {
         // Prepare Context & Model
         const selectedModel = options.forceModel || this.app.getSelectedModel();
         
-        // If Gem model is selected, ensure we have a Gem ID
-        let effectiveGemId = options.gemId || null;
-        if (selectedModel === 'gem') {
-            effectiveGemId = effectiveGemId || this.app.ui.settings.gemId;
-            if (!effectiveGemId) {
-                console.warn('[PromptController] Gem model selected but no Gem ID configured!');
-                // You might want to show a UI notification here
-            }
+        // Get Gem ID from the selected model (if it's a Gem)
+        let effectiveGemId = options.gemId || this.app.getSelectedGemId();
+        
+        if (selectedModel === 'gem' && !effectiveGemId) {
+            console.warn('[PromptController] Gem model selected but no Gem ID found!');
         }
 
         if (session.context) {

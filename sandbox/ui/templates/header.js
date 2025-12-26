@@ -12,7 +12,7 @@ export const HeaderTemplate = `
                     <option value="gemini-2.5-flash">Fast</option>
                     <option value="gemini-2.5-pro">Thinking</option>
                     <option value="gemini-3.0-pro">3 Pro</option>
-                    <option value="gem">Gem</option>
+                    <!-- Gems will be dynamically added here -->
                 </select>
             </div>
         </div>

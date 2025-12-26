@@ -4,6 +4,7 @@ import { MessageHandler } from './message_handler.js';
 import { SessionFlowController } from './session_flow.js';
 import { PromptController } from './prompt.js';
 import { MCPController } from './mcp_controller.js';
+import { GemsController } from './gems_controller.js';
 import { t } from '../core/i18n.js';
 import { saveSessionsToStorage, sendToBackground } from '../../lib/messaging.js';
 
@@ -33,6 +34,17 @@ export class AppController {
         this.sessionFlow = new SessionFlowController(sessionManager, uiController, this);
         this.prompt = new PromptController(sessionManager, uiController, imageManager, this);
         this.mcp = new MCPController(this);
+        this.gems = new GemsController();
+        
+        // Register model selects for Gems population
+        const modelSelect = document.getElementById('model-select');
+        if (modelSelect) {
+            this.gems.registerModelSelects([modelSelect]);
+            // Fetch Gems on initialization
+            this.gems.fetchGems(false).catch(err => {
+                console.error('[AppController] Failed to fetch Gems on init:', err);
+            });
+        }
     }
 
     setCaptureMode(mode) {
@@ -90,7 +102,13 @@ export class AppController {
     }
 
     getSelectedModel() {
-        return this.ui.modelSelect ? this.ui.modelSelect.value : "gemini-2.5-flash";
+        const modelValue = this.ui.modelSelect ? this.ui.modelSelect.value : "gemini-2.5-flash";
+        return this.gems.getBaseModel(modelValue);
+    }
+    
+    getSelectedGemId() {
+        const modelValue = this.ui.modelSelect ? this.ui.modelSelect.value : null;
+        return this.gems.getGemIdFromValue(modelValue);
     }
 
     handleModelChange(model) {
