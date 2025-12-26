@@ -49,9 +49,10 @@ export class PromptController {
         const session = this.sessionManager.getCurrentSession();
 
         // Update Title if needed
-        if (session.messages.length === 0) {
-            const newTitle = options.sessionTitle || displayPrompt || t('imageSent');
-            const titleUpdate = this.sessionManager.updateTitle(currentId, newTitle);
+        // Only update title if sessionTitle is explicitly provided (e.g., from summarize feature)
+        // Otherwise, let Gemini API auto-generate the title after the first response
+        if (session.messages.length === 0 && options.sessionTitle) {
+            const titleUpdate = this.sessionManager.updateTitle(currentId, options.sessionTitle);
             if (titleUpdate) this.app.sessionFlow.refreshHistoryUI();
         }
 

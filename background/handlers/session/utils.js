@@ -25,16 +25,18 @@ export async function getActiveTabContent() {
         const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
         if (!tab || !tab.id) return null;
 
-        // Check for restricted URLs
+        // Check for restricted URLs (Chrome internal pages, extensions, etc.)
         if (tab.url && (
             tab.url.startsWith('chrome://') || 
             tab.url.startsWith('edge://') || 
             tab.url.startsWith('chrome-extension://') || 
             tab.url.startsWith('about:') ||
             tab.url.startsWith('view-source:') ||
+            tab.url.startsWith('devtools://') ||
             tab.url.startsWith('https://chrome.google.com/webstore') ||
             tab.url.startsWith('https://chromewebstore.google.com')
         )) {
+            console.log(`[PageContext] 系统页面无法获取内容: ${tab.url}`);
             return null;
         }
 
@@ -44,7 +46,6 @@ export async function getActiveTabContent() {
             return response ? response.content : null;
         } catch (e) {
             // Strategy 2: Fallback to Scripting Injection
-            console.log("Content script unavailable, attempting fallback injection...");
             try {
                 const results = await chrome.scripting.executeScript({
                     target: { tabId: tab.id },
@@ -52,12 +53,23 @@ export async function getActiveTabContent() {
                 });
                 return results?.[0]?.result || null;
             } catch (injErr) {
-                console.error("Fallback injection failed:", injErr);
+                // Check if it's a restricted page error (expected behavior)
+                const errorMsg = injErr.message || String(injErr);
+                if (errorMsg.includes('chrome://') || 
+                    errorMsg.includes('edge://') || 
+                    errorMsg.includes('Cannot access') ||
+                    errorMsg.includes('restricted')) {
+                    // Silently handle restricted pages - this is expected
+                    console.log(`[PageContext] 无法访问受限页面: ${tab.url || '未知'}`);
+                } else {
+                    // Log unexpected errors for debugging
+                    console.warn(`[PageContext] 页面内容获取失败:`, injErr.message);
+                }
                 return null;
             }
         }
     } catch (e) {
-        console.error("Failed to get page context:", e);
+        console.error("[PageContext] Failed to get page context:", e);
         return null;
     }
 }

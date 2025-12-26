@@ -46,6 +46,11 @@ export async function saveToHistory(text, result, filesObj = null) {
             ],
             context: result.context
         };
+        
+        // Update title with auto-generated one if available
+        if (result.title && newSession.title === "Quick Ask") {
+            newSession.title = result.title.substring(0, 50) + (result.title.length > 50 ? "..." : "");
+        }
 
         geminiSessions.unshift(newSession);
         await chrome.storage.local.set({ geminiSessions });
@@ -85,9 +90,21 @@ export async function appendAiMessage(sessionId, result) {
             });
             session.context = result.context; // Update context
             
-            // Update session title with auto-generated title if available and current title is "New Chat"
-            if (result.title && session.title === "New Chat") {
+            // Update session title with auto-generated title if available and current title is default
+            // Check both English "New Chat" and Chinese "新对话" (internationalized default)
+            // Also update if current title looks like it was auto-generated from user input (ends with "...")
+            const isDefaultTitle = session.title === "New Chat" || 
+                                   session.title === "新对话" || 
+                                   session.title === "Quick Ask" ||
+                                   (session.title.endsWith("...") && session.messages.length <= 2); // Likely first message truncation
+            
+            if (result.title && isDefaultTitle) {
+                console.log("[HistoryManager] ===== 自动更新会话标题 =====");
+                console.log("[HistoryManager] 原标题:", session.title);
+                console.log("[HistoryManager] 新标题:", result.title);
                 session.title = result.title.substring(0, 50) + (result.title.length > 50 ? "..." : "");
+                console.log("[HistoryManager] 截断后标题:", session.title);
+                console.log("[HistoryManager] ===============================\n");
             }
             
             session.timestamp = Date.now();

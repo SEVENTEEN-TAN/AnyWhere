@@ -50,7 +50,9 @@ export class SessionManager {
 
     updateTitle(id, text) {
         const session = this.sessions.find(s => s.id === id);
-        if (session && session.title === "New Chat") {
+        // Check both English and Chinese default titles
+        const isDefaultTitle = session && (session.title === "New Chat" || session.title === "新对话");
+        if (isDefaultTitle) {
             session.title = text.substring(0, 30) + (text.length > 30 ? "..." : "");
             return true;
         }

@@ -97,7 +97,7 @@ export class SessionFlowController {
                 sessionId: sessionId
             });
         } else {
-            console.warn('[SessionFlow] No conversationId found, skipping server deletion');
+            console.log('[SessionFlow] 会话未同步到服务器(无conversationId),仅删除本地数据');
         }
 
         if (switchNeeded) {

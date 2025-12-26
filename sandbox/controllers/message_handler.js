@@ -235,6 +235,7 @@ export class MessageHandler {
         console.log("[MessageHandler] 思考过程:", request.thoughts ? '有' : '无');
         console.log("[MessageHandler] 图片数量:", request.images ? request.images.length : 0);
         console.log("[MessageHandler] 上下文ID:", request.context?.contextIds);
+        console.log("[MessageHandler] 自动生成标题:", request.title || '无');
         console.log("[MessageHandler] 完整响应:", request);
         console.log("[MessageHandler] ========================================\n");
         

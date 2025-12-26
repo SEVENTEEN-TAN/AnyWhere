@@ -40,40 +40,57 @@ export function bindAppEvents(app, ui, setResizeRef) {
             const { title, url } = await app.getActiveTabInfo();
             ui.setLoading(false);
 
-            const prompt = `请将网页内容重构为一份【结构化深度研报】。
-请严格按照以下顺序和格式输出：
+            const prompt = `请将网页内容重构为一份【结构化深度研报】,严格按以下格式输出:
 
 ## 1. 核心摘要
-简明扼要地概括网页的核心内容、背景及价值（100-200字）。
+用100-200字概括网页的核心内容、背景及价值。
 
 ## 2. 知识脑图 (Markmap)
-请生成一个 **markmap** 代码块，可视化展示文章的逻辑结构。
-根节点使用一级标题 (#)，子节点使用二级标题 (##) 或 列表项 (-)。
+生成markmap代码块,可视化展示逻辑结构。根节点用 #,子节点用 ## 或 -。
 
 \`\`\`markmap
-# 核心主题
-## 核心板块 1
-- 关键细节 1.1
-- 关键细节 1.2
-## 核心板块 2
-...
+# 文章主题(用实际标题替换)
+## 核心板块1(如:技术架构)
+  - 关键点1.1
+  - 关键点1.2
+## 核心板块2(如:应用场景)
+  - 关键点2.1
+  - 关键点2.2
+## 核心板块3
+  - ...
 \`\`\`
 
 ## 3. 深度内容明细
-请像“思维导图文字化”一样，层层拆解内容。
-**要求**：必须使用 **H3 (###)** 标题列出具体细节，并在每个 H3 下填充**详尽的段落解析**（包含数据、案例、原理解释），拒绝简单的列表或一句话概括。
+将思维导图"文字化",层层拆解内容。
 
-### [核心板块 1：主要观点]
-#### [关键细节 1.1：具体概念]
-> 在此处深度展开...
-#### [关键细节 1.2：具体概念]
-> 在此处深度展开...
+**格式要求**:
+- 必须使用 H3(###) 和 H4(####) 标题
+- 每个H4下必须有详细段落(含数据/案例/原理)
+- 禁止简单列表或一句话敷衍
+- 标题格式: ### 板块名:具体主题 (不要方括号)
 
-### [核心板块 2：主要观点]
+**示例**:
+
+### 技术架构:Serverless设计
+#### 核心组件:Cloudflare Workers
+在边缘计算节点运行JavaScript代码,无需管理服务器。Workers采用V8引擎隔离技术,启动时间<5ms,支持全球200+数据中心部署。相比传统Lambda,冷启动延迟降低90%。关键优势在于...(继续深入)
+
+#### 数据存储:D1分布式数据库
+Cloudflare的SQL数据库,基于SQLite构建。支持ACID事务,免费额度100K读/天。采用多区域复制策略,RPO<1秒。在本项目中用于存储邮件元数据和配置,结构设计为...(继续深入)
+
+### 部署策略:多模态方案
+#### CLI自动化部署
 ...
 
+**反面示例(禁止模仿)**:
+### 技术架构
+- Cloudflare Workers
+- D1数据库
+- Pages前端
+(这种简单列表是错误的!)
+
 ## 4. 总结与启示
-用精炼的语言总结全文，并给出核心结论。`;
+用精炼语言总结全文,给出1-2个核心结论或启发。`;
 
             const displayTitle = title ? `[${title}]` : 'Current Page';
             const displayUrl = url ? `(${url})` : '';
@@ -82,13 +99,16 @@ export function bindAppEvents(app, ui, setResizeRef) {
             // Add Suggestion Instructions (No visible heading, block only)
             const promptWithSuggestions = prompt + `
 
-请根据页面内容，在回答末尾额外生成 3 个用户可能感兴趣的追问问题。
-要求：
-1. 问题应短小精悍（不超过20字），直击用户好奇心或痛点。
-2. 侧重于“如何应用”、“底层逻辑”或“反直觉的细节”。
-3. 避免宽泛的“主要内容是什么”。
+---
 
-请严格使用以下格式封装建议问题（不要添加标题或任何其他文字，直接输出标签）：
+**重要**:回答完上述4个部分后,必须在末尾生成3个追问问题。
+
+要求:
+1. 短小精悍(≤20字),直击好奇心/痛点
+2. 侧重"如何应用"、"底层逻辑"、"反直觉细节"
+3. 避免宽泛问题(如"主要内容是什么")
+
+严格使用此格式(不加标题,直接输出):
 <suggestions>
 ["问题1", "问题2", "问题3"]
 </suggestions>`;
@@ -146,17 +166,15 @@ export function bindAppEvents(app, ui, setResizeRef) {
     const resizeModelSelect = () => {
         if (!modelSelect) return;
         
-        // Check if there are any options
+        // Check if there are any options (silent check - models may still be loading)
         if (!modelSelect.options || modelSelect.options.length === 0) {
-            console.warn('[Events] Model select has no options, skipping resize');
-            return;
+            return; // Silently skip, models are loading asynchronously
         }
         
         // Check if selected index is valid
         const selectedOption = modelSelect.options[modelSelect.selectedIndex];
         if (!selectedOption) {
-            console.warn('[Events] No selected option, skipping resize');
-            return;
+            return; // Silently skip
         }
         
         const tempSpan = document.createElement('span');

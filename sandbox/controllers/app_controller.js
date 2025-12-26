@@ -182,8 +182,17 @@ export class AppController {
 
         // Restore Sessions
         if (action === 'RESTORE_SESSIONS') {
+            console.log("[AppController] ===== 恢复会话列表 =====");
+            console.log("[AppController] 会话数量:", payload ? payload.length : 0);
+            if (payload && payload.length > 0) {
+                console.log("[AppController] 最近会话标题:", payload[0].title);
+            }
+            
             this.sessionManager.setSessions(payload || []);
             this.sessionFlow.refreshHistoryUI();
+            
+            console.log("[AppController] 已刷新侧边栏UI");
+            console.log("[AppController] ==========================\n");
 
             const currentId = this.sessionManager.currentSessionId;
             const currentSessionExists = this.sessionManager.getCurrentSession();
