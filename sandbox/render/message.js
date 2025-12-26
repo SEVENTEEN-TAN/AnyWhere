@@ -11,7 +11,9 @@ import { loadMarkmap } from '../libs/markmap-loader.js';
 // - array of strings: multiple user images
 // - array of objects {url, alt}: AI generated images
 // mcpIds: array of MCP server IDs used for this message (for AI messages)
-export function appendMessage(container, text, role, attachment = null, thoughts = null, mcpIds = null, model = null) {
+// model: model name (e.g., "gemini-2.5-flash" or "gem")
+// gemName: (optional) Gem display name if model is 'gem'
+export function appendMessage(container, text, role, attachment = null, thoughts = null, mcpIds = null, model = null, gemName = null) {
     const div = document.createElement('div');
     div.className = `msg ${role}`;
 
@@ -20,6 +22,7 @@ export function appendMessage(container, text, role, attachment = null, thoughts
     let currentThoughts = thoughts || "";
     let currentMcpIds = mcpIds || [];
     let currentModel = model || "";
+    let currentGemName = gemName || "";
 
     // 1. User Uploaded Images
     if (role === 'user' && attachment) {
@@ -176,11 +179,18 @@ export function appendMessage(container, text, role, attachment = null, thoughts
             footerContainer.style.paddingTop = '8px';
             footerContainer.style.borderTop = '1px solid var(--border-color)';
 
-            // Model Name
+            // Model Name (with Gem name if applicable)
             if (currentModel) {
                 const modelSpan = document.createElement('span');
                 modelSpan.className = 'model-name';
-                modelSpan.innerHTML = `⚡ ${escapeHtml(currentModel)}`;
+                
+                // Format: if it's a Gem, show "Gem-[Name]", otherwise show model name
+                let displayModel = currentModel;
+                if (currentModel === 'gem' && currentGemName) {
+                    displayModel = `Gem-${currentGemName}`;
+                }
+                
+                modelSpan.innerHTML = `⚡ ${escapeHtml(displayModel)}`;
                 footerContainer.appendChild(modelSpan);
             }
 

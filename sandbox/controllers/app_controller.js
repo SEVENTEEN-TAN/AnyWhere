@@ -137,6 +137,11 @@ export class AppController {
         return this.gems.getGemIdFromValue(modelValue);
     }
 
+    getSelectedGemName() {
+        const gemId = this.getSelectedGemId();
+        return gemId ? this.gems.getGemName(gemId) : null;
+    }
+
     handleModelChange(model) {
         window.parent.postMessage({ action: 'SAVE_MODEL', payload: model }, '*');
     }

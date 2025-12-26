@@ -160,6 +160,17 @@ export class GemsController {
     }
 
     /**
+     * Get Gem name by ID
+     * @param {string} gemId - The Gem ID
+     * @returns {string|null} Gem name or null
+     */
+    getGemName(gemId) {
+        if (!gemId || !this.gems) return null;
+        const gem = this.gems.find(g => g.id === gemId);
+        return gem ? gem.name : null;
+    }
+
+    /**
      * Check if a model value is a Gem
      * @param {string} modelValue - The model select value
      * @returns {boolean}

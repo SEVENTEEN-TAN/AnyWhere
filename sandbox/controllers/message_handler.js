@@ -215,7 +215,8 @@ export class MessageHandler {
             // Get current MCP IDs from controller
             const mcpIds = this.app.mcp ? this.app.mcp.getSelectedMcpIds() : [];
             const currentModel = this.app.getSelectedModel();
-            this.streamingBubble = appendMessage(this.ui.historyDiv, "", 'ai', null, "", mcpIds, currentModel);
+            const gemName = currentModel === 'gem' ? this.app.getSelectedGemName() : null;
+            this.streamingBubble = appendMessage(this.ui.historyDiv, "", 'ai', null, "", mcpIds, currentModel, gemName);
         }
 
         // Update content if text or thoughts exist
@@ -283,7 +284,8 @@ export class MessageHandler {
                 this.streamingBubble = null;
             } else {
                 // Fallback if no stream occurred (or single short response)
-                appendMessage(this.ui.historyDiv, request.text, 'ai', request.images, request.thoughts, mcpIds, currentModel);
+                const gemName = currentModel === 'gem' ? this.app.getSelectedGemName() : null;
+                appendMessage(this.ui.historyDiv, request.text, 'ai', request.images, request.thoughts, mcpIds, currentModel, gemName);
             }
         }
     }
