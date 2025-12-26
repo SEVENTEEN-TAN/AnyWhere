@@ -145,6 +145,20 @@ export function bindAppEvents(app, ui, setResizeRef) {
     // Auto-resize Logic
     const resizeModelSelect = () => {
         if (!modelSelect) return;
+        
+        // Check if there are any options
+        if (!modelSelect.options || modelSelect.options.length === 0) {
+            console.warn('[Events] Model select has no options, skipping resize');
+            return;
+        }
+        
+        // Check if selected index is valid
+        const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+        if (!selectedOption) {
+            console.warn('[Events] No selected option, skipping resize');
+            return;
+        }
+        
         const tempSpan = document.createElement('span');
         Object.assign(tempSpan.style, {
             visibility: 'hidden',
@@ -154,7 +168,8 @@ export function bindAppEvents(app, ui, setResizeRef) {
             fontFamily: window.getComputedStyle(modelSelect).fontFamily,
             whiteSpace: 'nowrap'
         });
-        tempSpan.textContent = modelSelect.options[modelSelect.selectedIndex].text;
+        
+        tempSpan.textContent = selectedOption.text;
         document.body.appendChild(tempSpan);
         const width = tempSpan.getBoundingClientRect().width;
         document.body.removeChild(tempSpan);

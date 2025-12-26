@@ -3,8 +3,10 @@
 import { fetchRequestParams } from './auth.js';
 import { uploadFile } from './upload.js';
 import { parseGeminiLine } from './parser.js';
+import { getDefaultModels } from './models_api.js';
 
-const MODEL_CONFIGS = {
+// Default fallback model configs (used if dynamic fetch fails)
+const DEFAULT_MODEL_CONFIGS = {
     // Fast: Gemini 3 Flash
     'gemini-2.5-flash': {
         header: '[1,null,null,null,"9ec249fc9ad08861",null,null,0,[4]]'
@@ -26,6 +28,56 @@ const MODEL_CONFIGS = {
         header: '[1,null,null,null,"9ec249fc9ad08861",null,null,0,[4]]'
     }
 };
+
+// Dynamic model configs (loaded from API)
+let dynamicModelConfigs = null;
+
+/**
+ * Get model configuration by ID
+ * @param {string} modelId - Model identifier
+ * @returns {object} Model configuration with header and extraHeaders
+ */
+function getModelConfig(modelId) {
+    // Try dynamic configs first
+    if (dynamicModelConfigs && dynamicModelConfigs[modelId]) {
+        return dynamicModelConfigs[modelId];
+    }
+    
+    // Fallback to default configs
+    return DEFAULT_MODEL_CONFIGS[modelId] || DEFAULT_MODEL_CONFIGS['gemini-2.5-flash'];
+}
+
+/**
+ * Update dynamic model configs from fetched model list
+ * @param {Array} models - Array of model objects from API
+ */
+export function updateModelConfigs(models) {
+    if (!models || models.length === 0) {
+        console.warn('[GeminiAPI] No models provided for config update');
+        return;
+    }
+    
+    dynamicModelConfigs = {};
+    
+    for (const model of models) {
+        if (model.id && model.header) {
+            dynamicModelConfigs[model.id] = {
+                header: model.header,
+                extraHeaders: model.extraHeaders || null
+            };
+        }
+    }
+    
+    console.log(`[GeminiAPI] Updated model configs for ${Object.keys(dynamicModelConfigs).length} models`);
+}
+
+/**
+ * Get all available model configs (for UI)
+ * @returns {object} All model configurations
+ */
+export function getAllModelConfigs() {
+    return { ...DEFAULT_MODEL_CONFIGS, ...dynamicModelConfigs };
+}
 
 export async function sendGeminiMessage(prompt, context, model, files, signal, onUpdate, gemId = null) {
     // 1. Ensure Auth
@@ -49,7 +101,7 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
         }
     }
 
-    const modelConfig = MODEL_CONFIGS[model] || MODEL_CONFIGS['gemini-2.5-flash'];
+    const modelConfig = getModelConfig(model);
 
     // 2. Handle File Uploads (Multimodal)
     // Structure: [[[url], filename], [[url], filename], ...]

@@ -5,6 +5,7 @@ import { SessionFlowController } from './session_flow.js';
 import { PromptController } from './prompt.js';
 import { MCPController } from './mcp_controller.js';
 import { GemsController } from './gems_controller.js';
+import { ModelsController } from './models_controller.js';
 import { t } from '../core/i18n.js';
 import { saveSessionsToStorage, sendToBackground } from '../../lib/messaging.js';
 
@@ -35,20 +36,40 @@ export class AppController {
         this.prompt = new PromptController(sessionManager, uiController, imageManager, this);
         this.mcp = new MCPController(this);
         this.gems = new GemsController();
+        this.models = new ModelsController();
     }
     
-    // Initialize Gems after DOM is ready
+    // Initialize Models and Gems after DOM is ready
     initializeGems() {
-        // Register model selects for Gems population
+        // Register model selects for Models and Gems population
         const modelSelect = document.getElementById('model-select');
         if (modelSelect) {
+            this.models.registerModelSelects([modelSelect]);
             this.gems.registerModelSelects([modelSelect]);
-            // Fetch Gems on initialization
+            
+            // Fetch Models first, then Gems
+            this.models.fetchModels(false)
+                .then(() => {
+                    console.log('[AppController] Models fetched successfully');
+                    // Update Gemini API with dynamic model configs
+                    return import('../../services/gemini_api.js');
+                })
+                .then(module => {
+                    const models = this.models.getAllModels();
+                    if (models.length > 0 && module.updateModelConfigs) {
+                        module.updateModelConfigs(models);
+                    }
+                })
+                .catch(err => {
+                    console.error('[AppController] Failed to fetch Models:', err);
+                });
+            
+            // Fetch Gems
             this.gems.fetchGems(false).catch(err => {
-                console.error('[AppController] Failed to fetch Gems on init:', err);
+                console.error('[AppController] Failed to fetch Gems:', err);
             });
         } else {
-            console.warn('[AppController] Model select not found, Gems initialization delayed');
+            console.warn('[AppController] Model select not found, initialization delayed');
         }
     }
 

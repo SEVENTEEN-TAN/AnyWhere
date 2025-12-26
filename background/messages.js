@@ -3,6 +3,7 @@
 import { SessionMessageHandler } from './handlers/session.js';
 import { UIMessageHandler } from './handlers/ui.js';
 import { getCachedGemsListAPI } from '../services/gems_api.js';
+import { getCachedModelsListAPI } from '../services/models_api.js';
 import { deleteSessionFromServer } from '../services/session_api.js';
 
 /**
@@ -80,6 +81,22 @@ export function setupMessageListener(sessionManager, imageHandler, controlManage
                 console.error('[Background] Failed to fetch Gems:', error);
                 console.error('[Background] Error stack:', error.stack);
                 sendResponse({ gems: [], error: error.message });
+            });
+            return true;
+        }
+        
+        // --- MODELS MANAGEMENT ---
+        if (request.action === 'FETCH_MODELS_LIST') {
+            const userIndex = request.userIndex || '0';
+            const forceRefresh = request.forceRefresh || false;
+            console.log(`[Background] FETCH_MODELS_LIST request: userIndex=${userIndex}, forceRefresh=${forceRefresh}`);
+            getCachedModelsListAPI(userIndex, forceRefresh).then(models => {
+                console.log(`[Background] FETCH_MODELS_LIST response: ${models.length} models`);
+                sendResponse({ models: models });
+            }).catch(error => {
+                console.error('[Background] Failed to fetch Models:', error);
+                console.error('[Background] Error stack:', error.stack);
+                sendResponse({ models: [], error: error.message });
             });
             return true;
         }

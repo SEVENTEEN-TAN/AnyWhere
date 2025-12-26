@@ -216,6 +216,31 @@ window.addEventListener('message', (event) => {
         return;
     }
 
+    // --- MODELS LIST REQUEST ---
+    if (action === 'FETCH_MODELS_LIST') {
+        const messageId = event.data.messageId;
+        const userIndex = event.data.userIndex || '0';
+        const forceRefresh = event.data.forceRefresh || false;
+        
+        console.log('[Sidepanel] FETCH_MODELS_LIST request received:', { messageId, userIndex, forceRefresh });
+        
+        chrome.runtime.sendMessage({
+            action: 'FETCH_MODELS_LIST',
+            userIndex: userIndex,
+            forceRefresh: forceRefresh
+        }, (response) => {
+            console.log('[Sidepanel] FETCH_MODELS_LIST response from background:', response);
+            if (iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    action: 'MODELS_LIST_RESPONSE',
+                    messageId: messageId,
+                    response: response
+                }, '*');
+            }
+        });
+        return;
+    }
+
     if (action === 'DOWNLOAD_IMAGE') {
         const { url, filename } = payload;
         const a = document.createElement('a');

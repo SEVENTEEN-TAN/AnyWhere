@@ -229,7 +229,15 @@ export class MessageHandler {
     }
 
     handleGeminiReply(request) {
-        console.log("[MessageHandler] Gemini Reply:", request);
+        console.log("[MessageHandler] ========== 收到AI响应 ==========");
+        console.log("[MessageHandler] 状态:", request.status);
+        console.log("[MessageHandler] 文本长度:", request.text ? request.text.length : 0);
+        console.log("[MessageHandler] 思考过程:", request.thoughts ? '有' : '无');
+        console.log("[MessageHandler] 图片数量:", request.images ? request.images.length : 0);
+        console.log("[MessageHandler] 上下文ID:", request.context?.contextIds);
+        console.log("[MessageHandler] 完整响应:", request);
+        console.log("[MessageHandler] ========================================\n");
+        
         this.app.isGenerating = false;
         this.ui.setLoading(false);
 

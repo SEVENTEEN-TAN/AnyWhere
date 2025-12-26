@@ -86,10 +86,14 @@ export class GemsController {
             return;
         }
 
-        this.modelSelects.forEach(select => {
+        console.log(`[GemsController] ===== 开始填充Gem列表 =====`);
+        console.log(`[GemsController] 获取到 ${this.gems.length} 个Gems:`, this.gems);
+
+        this.modelSelects.forEach((select, index) => {
             if (!select) return;
 
             const currentValue = select.value;
+            console.log(`[GemsController] 选择器 #${index} 当前值: ${currentValue}`);
             
             // Remove old Gem options (those with gem: prefix)
             const optionsToRemove = [];
@@ -98,7 +102,10 @@ export class GemsController {
                     optionsToRemove.push(select.options[i]);
                 }
             }
-            optionsToRemove.forEach(opt => opt.remove());
+            if (optionsToRemove.length > 0) {
+                console.log(`[GemsController] 移除 ${optionsToRemove.length} 个旧的Gem选项`);
+                optionsToRemove.forEach(opt => opt.remove());
+            }
 
             // Add optgroup for Gems
             let gemGroup = select.querySelector('optgroup[label="Google Gems"]');
@@ -106,9 +113,11 @@ export class GemsController {
                 gemGroup = document.createElement('optgroup');
                 gemGroup.label = 'Google Gems';
                 select.appendChild(gemGroup);
+                console.log(`[GemsController] 创建了 "Google Gems" 分组`);
             } else {
                 // Clear existing Gem options in the group
                 gemGroup.innerHTML = '';
+                console.log(`[GemsController] 清空了现有Gem选项`);
             }
 
             // Add Gem options
@@ -118,6 +127,7 @@ export class GemsController {
                 option.textContent = gem.name;
                 option.title = gem.description || gem.name;
                 gemGroup.appendChild(option);
+                console.log(`[GemsController] 添加Gem: gem:${gem.id.substring(0, 12)}... (${gem.name})`);
             });
 
             // Restore previous selection if it still exists
@@ -125,11 +135,16 @@ export class GemsController {
                 const optionExists = Array.from(select.options).some(opt => opt.value === currentValue);
                 if (optionExists) {
                     select.value = currentValue;
+                    console.log(`[GemsController] 恢复选中值: ${currentValue}`);
+                } else {
+                    console.log(`[GemsController] 原选中值不存在: ${currentValue}`);
                 }
             }
 
-            console.log(`[GemsController] Populated ${this.gems.length} Gems to model select`);
+            console.log(`[GemsController] 选择器 #${index} 最终共有 ${select.options.length} 个选项`);
         });
+        
+        console.log(`[GemsController] ===== Gem列表填充完成 =====`);
     }
 
     /**

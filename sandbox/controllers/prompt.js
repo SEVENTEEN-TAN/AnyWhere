@@ -105,7 +105,14 @@ export class PromptController {
             sessionId: currentId
         };
 
-        console.log("[PromptController] Sending Payload:", payload);
+        console.log("[PromptController] ========== 发送消息 ==========");
+        console.log("[PromptController] 用户输入:", displayPrompt);
+        console.log("[PromptController] 模型:", selectedModel);
+        console.log("[PromptController] Gem ID:", effectiveGemId || '无');
+        console.log("[PromptController] 附件数量:", files.length);
+        console.log("[PromptController] MCP 服务:", mcpIds);
+        console.log("[PromptController] 完整Payload:", payload);
+        console.log("[PromptController] =====================================\n");
 
         sendToBackground(payload);
     }
