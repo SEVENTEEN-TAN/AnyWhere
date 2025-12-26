@@ -3,6 +3,7 @@
 import { SessionMessageHandler } from './handlers/session.js';
 import { UIMessageHandler } from './handlers/ui.js';
 import { getCachedGemsListAPI } from '../services/gems_api.js';
+import { deleteSessionFromServer } from '../services/session_api.js';
 
 /**
  * Sets up the global runtime message listener.
@@ -81,6 +82,31 @@ export function setupMessageListener(sessionManager, imageHandler, controlManage
                 sendResponse({ gems: [], error: error.message });
             });
             return true;
+        }
+        
+        // --- SESSION MANAGEMENT ---
+        if (request.action === 'DELETE_SESSION_FROM_SERVER') {
+            const conversationId = request.conversationId;
+            const userIndex = '0'; // TODO: Support multi-account
+            
+            console.log(`[Background] DELETE_SESSION_FROM_SERVER: ${conversationId}`);
+            
+            // Delete asynchronously, don't wait for response
+            deleteSessionFromServer(conversationId, userIndex)
+                .then(success => {
+                    if (success) {
+                        console.log(`[Background] Session deleted from server: ${conversationId}`);
+                    } else {
+                        console.warn(`[Background] Failed to delete session from server: ${conversationId}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('[Background] Error deleting session from server:', error);
+                });
+            
+            // Return immediately, don't wait for server response
+            sendResponse({ success: true });
+            return false;
         }
 
         // Delegate to Session Handler (Prompt, Context, Quick Ask, Browser Control)

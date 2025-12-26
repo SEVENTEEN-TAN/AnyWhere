@@ -122,6 +122,7 @@ export class GeminiSessionManager {
                         text: response.text,
                         thoughts: response.thoughts,
                         images: response.images,
+                        title: response.title, // Include auto-generated title
                         status: "success",
                         context: response.newContext
                     };

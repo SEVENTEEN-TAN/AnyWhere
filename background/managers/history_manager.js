@@ -14,7 +14,8 @@ export async function saveToHistory(text, result, filesObj = null) {
         const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
         
         const sessionId = generateUUID();
-        const title = text.length > 30 ? text.substring(0, 30) + "..." : text;
+        // Use auto-generated title if available, otherwise fallback to user prompt
+        const title = result.title || (text.length > 30 ? text.substring(0, 30) + "..." : text);
 
         // Normalize image data to array of base64 strings
         let storedImages = null;
@@ -83,6 +84,12 @@ export async function appendAiMessage(sessionId, result) {
                 generatedImages: result.images
             });
             session.context = result.context; // Update context
+            
+            // Update session title with auto-generated title if available and current title is "New Chat"
+            if (result.title && session.title === "New Chat") {
+                session.title = result.title.substring(0, 50) + (result.title.length > 50 ? "..." : "");
+            }
+            
             session.timestamp = Date.now();
             
             // Move to top

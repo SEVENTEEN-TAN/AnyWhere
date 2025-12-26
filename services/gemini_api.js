@@ -175,15 +175,16 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
     let finalResult = null;
+    let conversationTitle = null; // Store auto-generated title
     let isFirstChunk = true;
-
+    
     try {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-
+    
             const chunk = decoder.decode(value, { stream: true });
-
+    
             // Validate Login Session on first chunk
             if (isFirstChunk) {
                 if (chunk.includes('<!DOCTYPE html>') || chunk.includes('<html') || chunk.includes('Sign in')) {
@@ -191,20 +192,26 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
                 }
                 isFirstChunk = false;
             }
-
+    
             buffer += chunk;
-
+    
             // Parse Lines
             let newlineIndex;
             while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
                 const line = buffer.slice(0, newlineIndex);
                 buffer = buffer.slice(newlineIndex + 1);
-
+    
                 const parsed = parseGeminiLine(line);
                 if (parsed) {
-                    finalResult = parsed;
-                    if (onUpdate) {
-                        onUpdate(parsed.text, parsed.thoughts);
+                    // Check if this line contains the auto-generated title
+                    if (parsed.title) {
+                        conversationTitle = parsed.title;
+                    } else {
+                        // Regular message content
+                        finalResult = parsed;
+                        if (onUpdate) {
+                            onUpdate(parsed.text, parsed.thoughts);
+                        }
                     }
                 }
             }
@@ -214,10 +221,16 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
         if (e.message.includes("未登录")) throw e;
         console.error("Stream reading error:", e);
     }
-
+    
     if (buffer.length > 0) {
         const parsed = parseGeminiLine(buffer);
-        if (parsed) finalResult = parsed;
+        if (parsed) {
+            if (parsed.title) {
+                conversationTitle = parsed.title;
+            } else {
+                finalResult = parsed;
+            }
+        }
     }
 
     if (!finalResult) {
@@ -240,6 +253,7 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
         text: finalResult.text,
         thoughts: finalResult.thoughts,
         images: finalResult.images || [],
+        title: conversationTitle, // Include auto-generated title
         newContext: context
     };
 }

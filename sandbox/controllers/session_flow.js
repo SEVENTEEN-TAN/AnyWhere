@@ -78,9 +78,27 @@ export class SessionFlowController {
         }
     }
 
-    handleDeleteSession(sessionId) {
+    async handleDeleteSession(sessionId) {
+        console.log('[SessionFlow] Deleting session:', sessionId);
+        
+        // Get conversationId for server-side deletion
+        const conversationId = this.sessionManager.getConversationId(sessionId);
+        
+        // Delete from local storage first
         const switchNeeded = this.sessionManager.deleteSession(sessionId);
         saveSessionsToStorage(this.sessionManager.sessions);
+
+        // Delete from server if we have conversationId
+        if (conversationId) {
+            console.log('[SessionFlow] Deleting from server:', conversationId);
+            sendToBackground({
+                action: 'DELETE_SESSION_FROM_SERVER',
+                conversationId: conversationId,
+                sessionId: sessionId
+            });
+        } else {
+            console.warn('[SessionFlow] No conversationId found, skipping server deletion');
+        }
 
         if (switchNeeded) {
             if (this.sessionManager.sessions.length > 0) {

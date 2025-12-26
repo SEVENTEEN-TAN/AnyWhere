@@ -99,6 +99,20 @@ export class SessionManager {
         const session = this.sessions.find(s => s.id === id);
         if (session) {
             session.context = context;
+            // Extract and save conversationId from context for server-side deletion
+            if (context && context.contextIds && context.contextIds[0]) {
+                session.conversationId = context.contextIds[0];
+            }
         }
+    }
+    
+    /**
+     * Get conversation ID for server-side deletion
+     * @param {string} id - Session ID
+     * @returns {string|null} Conversation ID or null
+     */
+    getConversationId(id) {
+        const session = this.sessions.find(s => s.id === id);
+        return session && session.conversationId ? session.conversationId : null;
     }
 }

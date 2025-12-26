@@ -13,6 +13,33 @@ export function parseGeminiLine(line) {
         const rootArray = Array.isArray(rawData) ? rawData : null;
         if (!rootArray) return null;
 
+        // Helper to extract conversation title from metadata line
+        // Format: [["wrb.fr",null,"[null,[conversationId,responseId],{\"11\":[\"title\"],\"44\":true}]"]]
+        const extractTitle = (item) => {
+            if (!Array.isArray(item) || item.length < 3) return null;
+            if (item[0] !== 'wrb.fr') return null;
+            
+            const payloadStr = item[2];
+            if (typeof payloadStr !== 'string') return null;
+            
+            try {
+                const payload = JSON.parse(payloadStr);
+                if (!Array.isArray(payload) || payload.length < 3) return null;
+                
+                // payload[2] contains metadata object with field 11 for title
+                const metadata = payload[2];
+                if (metadata && typeof metadata === 'object' && metadata['11']) {
+                    const titleArray = metadata['11'];
+                    if (Array.isArray(titleArray) && titleArray[0]) {
+                        return { title: titleArray[0] };
+                    }
+                }
+            } catch(e) {
+                return null;
+            }
+            return null;
+        };
+
         // Helper to validate and extract from a potential payload item
         // Expected structure: [id, index, json_string, ...]
         const extractPayload = (item) => {
@@ -138,6 +165,13 @@ export function parseGeminiLine(line) {
         // Iterate through all items in the envelope to find the one containing the chat payload
         // This handles cases where the 'wrb.fr' ID changes, moves, or the item index shifts
         for (const item of rootArray) {
+            // Check for title metadata first
+            const titleResult = extractTitle(item);
+            if (titleResult) {
+                return { title: titleResult.title };
+            }
+            
+            // Then check for regular chat payload
             const result = extractPayload(item);
             if (result) {
                 return {
