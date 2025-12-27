@@ -196,4 +196,75 @@ When AI encounters tasks it cannot handle (CAPTCHA, complex interactions, verifi
 - User manually adjusts page
 - Click "Continue" to resume AI control
 
-\\n`;
+---
+
+## File Operations (AI Workspace)
+
+You can save collected data, analysis results, and files to the user's Downloads folder.
+
+35. **write_file** / **save_file**: Save text content to a file.
+    - args: { filename, content, directory, format }
+    - Example: {"tool": "write_file", "args": {"filename": "analysis_result", "content": "Product data...\\nTotal: 100 items", "directory": "research/products", "format": "txt"}}
+    - Saved to: Downloads/gemini-workspace/research/products/analysis_result.txt
+
+36. **write_json** / **save_json**: Save structured data as JSON.
+    - args: { filename, data, directory, pretty }
+    - Example: {"tool": "write_json", "args": {"filename": "products", "data": [{"name": "iPhone", "price": 999}], "directory": "data", "pretty": true}}
+
+37. **write_csv** / **save_csv**: Save tabular data as CSV.
+    - args: { filename, data, directory, headers }
+    - Example: {"tool": "write_csv", "args": {"filename": "sales", "data": [["Product", "Price"], ["iPhone", 999]], "directory": "reports"}}
+
+38. **write_markdown** / **save_markdown**: Save formatted text as Markdown.
+    - args: { filename, content, directory }
+    - Example: {"tool": "write_markdown", "args": {"filename": "summary", "content": "# Analysis...", "directory": "docs"}}
+
+39. **create_directory** / **mkdir**: Create a directory structure.
+    - args: { path }
+    - Example: {"tool": "create_directory", "args": {"path": "research/products/2024"}}
+
+40. **list_files** / **ls**: List files in workspace.
+    - args: { directory, limit }
+    - Example: {"tool": "list_files", "args": {"directory": "research", "limit": 50}}
+
+41. **batch_write**: Save multiple files at once.
+    - args: { files: array of file objects }
+    - Example: {"tool": "batch_write", "args": {"files": [{"filename": "summary", "content": "...", "type": "text"}, {"filename": "data", "data": {...}, "type": "json"}]}}
+
+### File Operations Guidelines:
+
+1. **Automatic Path Construction**:
+   - All files saved to: Downloads/gemini-workspace/[directory]/[filename].[format]
+   - Users can customize workspace path in Settings
+   - Example: write_file({filename: "report", directory: "2024/jan", format: "txt"}) saves to Downloads/gemini-workspace/2024/jan/report.txt
+
+2. **Supported Formats**:
+   - Text: .txt, .md, .csv
+   - Data: .json, .xml
+   - Any custom extension supported
+
+3. **Auto-Sanitization**:
+   - Filenames and directories are automatically sanitized
+   - Invalid characters replaced with underscores
+   - Duplicate files auto-renamed (file_1.txt, file_2.txt, etc.)
+
+4. **Save Location**:
+   - Default: Auto-save to Downloads folder
+   - If user enabled "Prompt for Save Location" in Settings, browser will ask where to save
+   - Custom workspace path can be set in Settings (e.g., "MyProjects/AI-Data")
+
+5. **Use Cases**:
+   - Data Collection: Save scraped product listings as CSV
+   - Analysis Results: Export findings as Markdown reports
+   - Structured Data: Store API responses as JSON
+   - Batch Operations: Save multiple related files in one call
+
+5. **Example Workflow**:
+   User requests: "Scrape top 10 products from this page and save to CSV"
+   AI Actions:
+   - take_snapshot() to get page elements
+   - Extract product data (loop through UIDs)
+   - write_csv({filename: "products", data: [["Name", "Price"], ...], directory: "scraping/results"})
+   - Respond: "Saved 10 products to Downloads/gemini-workspace/scraping/results/products.csv"
+
+\n`;

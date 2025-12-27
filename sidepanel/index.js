@@ -158,7 +158,7 @@ window.addEventListener('message', (event) => {
 
     // --- Open Tab in Background (without switching focus) ---
     if (action === 'OPEN_TAB_BACKGROUND') {
-        chrome.runtime.sendMessage({ action: 'OPEN_TAB_BACKGROUND', url: e.data.url });
+        chrome.runtime.sendMessage({ action: 'OPEN_TAB_BACKGROUND', url: event.data.url });
         return;
     }
 
@@ -329,6 +329,20 @@ window.addEventListener('message', (event) => {
         });
     }
 
+    if (action === 'GET_WORKSPACE_SETTINGS') {
+        chrome.storage.local.get(['geminiWorkspacePath', 'geminiWorkspacePrompt'], (res) => {
+            if (iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    action: 'RESTORE_WORKSPACE_SETTINGS',
+                    payload: {
+                        path: res.geminiWorkspacePath || '',
+                        prompt: res.geminiWorkspacePrompt !== false // Default true
+                    }
+                }, '*');
+            }
+        });
+    }
+
     // --- Sync Storage Updates back to Local Cache (For Speed next time) ---
 
     if (action === 'SAVE_SESSIONS') {
@@ -366,6 +380,12 @@ window.addEventListener('message', (event) => {
     if (action === 'SAVE_GEM_ID') {
         chrome.storage.local.set({ gemini_gem_id: payload });
         if (preFetchedData) preFetchedData.gemini_gem_id = payload;
+    }
+    if (action === 'SAVE_WORKSPACE_PATH') {
+        chrome.storage.local.set({ geminiWorkspacePath: payload });
+    }
+    if (action === 'SAVE_WORKSPACE_PROMPT') {
+        chrome.storage.local.set({ geminiWorkspacePrompt: payload });
     }
 
     if (action === 'DOWNLOAD_SVG') {

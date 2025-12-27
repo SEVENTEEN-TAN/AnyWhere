@@ -157,37 +157,62 @@
         
         async loadGemsList() {
             try {
+                // Check if runtime is available before attempting message
+                if (!chrome.runtime?.id) {
+                    console.log('[ToolbarController] Extension context invalidated, skipping Gems load');
+                    return;
+                }
+                
                 const response = await new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => reject(new Error('Timeout')), 10000);
+                    const timeout = setTimeout(() => {
+                        console.log('[ToolbarController] Gems load timeout - background may not be ready');
+                        reject(new Error('Timeout'));
+                    }, 10000);
                     
-                    chrome.runtime.sendMessage(
-                        { action: 'FETCH_GEMS_LIST', userIndex: '0', forceRefresh: false },
-                        (response) => {
-                            clearTimeout(timeout);
-                            
-                            // Check for Chrome runtime errors
-                            if (chrome.runtime.lastError) {
-                                console.warn('[ToolbarController] Runtime error:', chrome.runtime.lastError.message);
-                                reject(new Error(chrome.runtime.lastError.message));
-                                return;
+                    try {
+                        chrome.runtime.sendMessage(
+                            { action: 'FETCH_GEMS_LIST', userIndex: '0', forceRefresh: false },
+                            (response) => {
+                                clearTimeout(timeout);
+                                
+                                // Check for Chrome runtime errors
+                                if (chrome.runtime.lastError) {
+                                    const errorMsg = chrome.runtime.lastError.message;
+                                    // Silent fail for "Receiving end does not exist" - this is expected when:
+                                    // 1. Page loaded before extension
+                                    // 2. Background is restarting
+                                    if (errorMsg.includes('Receiving end does not exist')) {
+                                        console.log('[ToolbarController] Background not ready yet, Gems will be unavailable');
+                                        resolve({ gems: [] });
+                                    } else {
+                                        console.warn('[ToolbarController] Runtime error:', errorMsg);
+                                        reject(new Error(errorMsg));
+                                    }
+                                    return;
+                                }
+                                
+                                resolve(response);
                             }
-                            
-                            resolve(response);
-                        }
-                    );
+                        );
+                    } catch (sendError) {
+                        clearTimeout(timeout);
+                        console.log('[ToolbarController] Failed to send message:', sendError.message);
+                        reject(sendError);
+                    }
                 });
                 
                 if (response && response.gems && response.gems.length > 0) {
                     console.log(`[ToolbarController] Loaded ${response.gems.length} Gems`);
                     this.populateGemsToModelSelector(response.gems);
                 } else if (response && response.error) {
-                    console.warn('[ToolbarController] Backend error:', response.error);
+                    console.log('[ToolbarController] Backend error:', response.error);
                 } else {
                     console.log('[ToolbarController] No Gems available');
                 }
             } catch (error) {
-                console.warn('[ToolbarController] Failed to load Gems:', error.message);
+                console.log('[ToolbarController] Gems load failed (non-critical):', error.message);
                 // Silently fail - Gems are optional feature
+                // The toolbar will still work with basic models
             }
         }
         

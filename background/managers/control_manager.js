@@ -7,6 +7,7 @@ import { SelectorEngine } from '../control/selector.js';
 import { AccessibilityChecker } from '../control/a11y.js';
 import { BreakpointOverlay } from '../control/breakpoint_overlay.js';
 import { ControlOverlay } from '../control/control_overlay.js';
+import { FileOperations } from '../control/file_operations.js';
 
 /**
  * Main Controller handling Chrome DevTools MCP functionalities.
@@ -21,6 +22,7 @@ export class BrowserControlManager {
         this.a11y = new AccessibilityChecker(this.connection);
         this.controlOverlay = new ControlOverlay(this.connection);  // Global control indicator
         this.breakpoint = new BreakpointOverlay(this.connection);   // Breakpoint panel
+        this.fileOps = new FileOperations();  // File operations for AI workspace
         this.isBreakpointActive = false;
         this.isControlActive = false;  // Track if control mode is enabled
     }
@@ -421,6 +423,38 @@ export class BrowserControlManager {
                 case 'request_user_help':
                     const message = args.message || 'Please complete the task manually';
                     result = await this.waitForUserIntervention(message);
+                    break;
+
+                // File Operations (New)
+                case 'write_file':
+                case 'save_file':
+                    result = await this.fileOps.writeFile(args);
+                    break;
+                case 'write_json':
+                case 'save_json':
+                    result = await this.fileOps.writeJSON(args);
+                    break;
+                case 'write_csv':
+                case 'save_csv':
+                    result = await this.fileOps.writeCSV(args);
+                    break;
+                case 'write_markdown':
+                case 'save_markdown':
+                    result = await this.fileOps.writeMarkdown(args);
+                    break;
+                case 'append_file':
+                    result = await this.fileOps.appendFile(args);
+                    break;
+                case 'create_directory':
+                case 'mkdir':
+                    result = await this.fileOps.createDirectory(args);
+                    break;
+                case 'list_files':
+                case 'ls':
+                    result = await this.fileOps.listFiles(args);
+                    break;
+                case 'batch_write':
+                    result = await this.fileOps.batchWrite(args);
                     break;
                     
                 default:

@@ -34,6 +34,10 @@ export class SettingsView {
             mcpConfigInput: get('mcp-config-json'),
             btnSaveMcp: get('save-mcp-config'),
 
+            workspacePath: get('workspace-path'),
+            btnClearWorkspacePath: get('clear-workspace-path'),
+            workspacePromptToggle: get('workspace-prompt-toggle'),
+
             starEl: get('star-count'),
 
             sidebarRadios: document.querySelectorAll('input[name="sidebar-behavior"]')
@@ -43,7 +47,8 @@ export class SettingsView {
     bindEvents() {
         const { modal, btnClose, btnSave, btnReset, themeSelect, languageSelect,
             inputQuickAsk, inputOpenPanel, textSelectionToggle, imageToolsToggle,
-            sidebarRadios, btnDownloadLogs, btnSaveMcp, mcpConfigInput } = this.elements;
+            sidebarRadios, btnDownloadLogs, btnSaveMcp, mcpConfigInput,
+            workspacePath, btnClearWorkspacePath, workspacePromptToggle } = this.elements;
 
         // Modal actions
         if (btnClose) btnClose.addEventListener('click', () => this.close());
@@ -65,6 +70,24 @@ export class SettingsView {
 
         if (btnDownloadLogs) {
             btnDownloadLogs.addEventListener('click', () => this.fire('onDownloadLogs'));
+        }
+
+        // Workspace Path
+        if (btnClearWorkspacePath) {
+            btnClearWorkspacePath.addEventListener('click', () => {
+                if (workspacePath) workspacePath.value = '';
+                this.fire('onWorkspacePathChange', '');
+            });
+        }
+        if (workspacePath) {
+            workspacePath.addEventListener('blur', (e) => {
+                this.fire('onWorkspacePathChange', e.target.value.trim());
+            });
+        }
+        if (workspacePromptToggle) {
+            workspacePromptToggle.addEventListener('change', (e) => {
+                this.fire('onWorkspacePromptChange', e.target.checked);
+            });
         }
 
         // Instant Updates
@@ -194,6 +217,14 @@ export class SettingsView {
 
     setMcpConfig(jsonStr) {
         if (this.elements.mcpConfigInput) this.elements.mcpConfigInput.value = jsonStr || "";
+    }
+
+    setWorkspacePath(path) {
+        if (this.elements.workspacePath) this.elements.workspacePath.value = path || '';
+    }
+
+    setWorkspacePrompt(enabled) {
+        if (this.elements.workspacePromptToggle) this.elements.workspacePromptToggle.checked = enabled !== false;
     }
 
     applyVisualTheme(theme) {

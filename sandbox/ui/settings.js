@@ -1,6 +1,6 @@
 
 // sandbox/ui/settings.js
-import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, sendToBackground } from '../../lib/messaging.js';
+import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, sendToBackground, requestWorkspaceSettingsFromStorage, saveWorkspacePathToStorage, saveWorkspacePromptToStorage } from '../../lib/messaging.js';
 import { setLanguagePreference, getLanguagePreference } from '../core/i18n.js';
 import { SettingsView } from './settings/view.js';
 import { DEFAULT_SHORTCUTS } from '../../lib/constants.js';
@@ -29,7 +29,9 @@ export class SettingsController {
             onImageToolsChange: (val) => { this.imageToolsEnabled = (val === 'on' || val === true); saveImageToolsToStorage(this.imageToolsEnabled); },
             onSidebarBehaviorChange: (val) => saveSidebarBehaviorToStorage(val),
             onDownloadLogs: () => this.downloadLogs(),
-            onSaveMcp: (json) => this.saveMcpConfig(json)
+            onSaveMcp: (json) => this.saveMcpConfig(json),
+            onWorkspacePathChange: (path) => this.saveWorkspacePath(path),
+            onWorkspacePromptChange: (enabled) => this.saveWorkspacePrompt(enabled)
         });
 
         // External Trigger Binding
@@ -41,7 +43,7 @@ export class SettingsController {
             });
         }
 
-        // Listen for log data & MCP responses
+        // Listen for log data & MCP responses & Workspace settings
         window.addEventListener('message', (e) => {
             if (e.data.action === 'BACKGROUND_MESSAGE' && e.data.payload) {
                 const payload = e.data.payload;
@@ -74,6 +76,13 @@ export class SettingsController {
                     }
                 }
             }
+            
+            // Workspace Settings Response
+            if (e.data.action === 'RESTORE_WORKSPACE_SETTINGS') {
+                const { path, prompt } = e.data.payload;
+                this.view.setWorkspacePath(path || '');
+                this.view.setWorkspacePrompt(prompt !== false);
+            }
         });
     }
 
@@ -94,6 +103,9 @@ export class SettingsController {
         // Refresh from storage
         requestTextSelectionFromStorage();
         requestImageToolsFromStorage();
+        
+        // Load workspace settings via messaging
+        requestWorkspaceSettingsFromStorage();
 
         // Fetch MCP Config
         this.fetchMcpConfig();
@@ -186,6 +198,18 @@ export class SettingsController {
 
     updateSidebarBehavior(behavior) {
         this.view.setSidebarBehavior(behavior);
+    }
+
+    // --- Workspace Settings ---
+    
+    saveWorkspacePath(path) {
+        saveWorkspacePathToStorage(path);
+        console.log('[Settings] Workspace path saved:', path || 'default');
+    }
+    
+    saveWorkspacePrompt(enabled) {
+        saveWorkspacePromptToStorage(enabled);
+        console.log('[Settings] Workspace prompt setting saved:', enabled);
     }
 
     async fetchGithubStars() {
