@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="logo.png" alt="Gemini Nexus" width="80" height="80">
-  <h1>Gemini Nexus</h1>
+  <img src="logo.png" alt="Anywhere" width="80" height="80">
+  <h1>Anywhere</h1>
   <p>🚀 一款强大的 AI 助手 Chrome 扩展，由 Google Gemini 驱动</p>
   <p>
     <a href="#features">功能</a> •
@@ -50,7 +50,7 @@
 ## 🏗️ Architecture
 
 ```
-gemini-nexus/
+anywhere/
 ├── background/          # Service Worker (API 调用、会话管理)
 │   ├── handlers/        # 消息处理器
 │   └── managers/        # 认证、会话、日志管理

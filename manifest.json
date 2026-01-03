@@ -1,7 +1,7 @@
 
 {
   "manifest_version": 3,
-  "name": "Gemini Nexus",
+  "name": "Anywhere",
   "version": "4.0.0",
   "permissions": ["sidePanel", "storage", "contextMenus", "scripting", "alarms", "debugger", "downloads"],
   "host_permissions": [
@@ -19,7 +19,7 @@
     "128": "logo.png"
   },
   "action": {
-    "default_title": "Open Gemini Chat",
+    "default_title": "Open Anywhere Chat",
     "default_icon": "logo.png"
   },
   "commands": {
@@ -28,7 +28,7 @@
         "default": "Alt+S",
         "mac": "Alt+S"
       },
-      "description": "Open Gemini Nexus Sidebar"
+      "description": "Open Anywhere Sidebar"
     }
   },
   "side_panel": {
