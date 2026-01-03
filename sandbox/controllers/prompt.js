@@ -100,6 +100,8 @@ export class PromptController {
             files: files, // Send full file objects array
             model: selectedModel,
             includePageContext: includePageContext,
+            // Pass pre-selected content from element picker (if available)
+            pageContextContent: includePageContext && this.app.pickedElementContent ? this.app.pickedElementContent : null,
             enableBrowserControl: enableBrowserControl,
             mcpIds: mcpIds, // MCP servers to activate
             gemId: effectiveGemId, // Pass Gem ID (required for 'gem' model)

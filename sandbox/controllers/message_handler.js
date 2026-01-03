@@ -71,6 +71,7 @@ export class MessageHandler {
         // 5.2 Element Picker Cancelled
         if (request.action === "ELEMENT_PICKER_CANCELLED") {
             this.app.pendingSummarize = false;
+            this.app.pendingPageContext = false;
             this.ui.updateStatus('');
             return;
         }
@@ -386,6 +387,7 @@ export class MessageHandler {
             this.ui.updateStatus(t('noContentFound') || 'No content found in selected element');
             setTimeout(() => this.ui.updateStatus(""), 3000);
             this.app.pendingSummarize = false;
+            this.app.pendingPageContext = false;
             return;
         }
 
@@ -394,17 +396,26 @@ export class MessageHandler {
         this.app.pickedElementSelector = payload.selector;
 
         const charCount = payload.content.length;
+        const elementInfo = payload.elementCount > 1 ? ` (${payload.elementCount} elements)` : '';
 
         // Check if this is a pending summarize action
         if (this.app.pendingSummarize) {
             this.app.pendingSummarize = false;
-            this.ui.updateStatus(`${t('summarizing') || 'Summarizing'} (${charCount.toLocaleString()} chars)...`);
+            this.ui.updateStatus(`${t('summarizing') || 'Summarizing'} (${charCount.toLocaleString()} chars)${elementInfo}...`);
 
             // Execute summarize with the picked content
             this.executeSummarize(payload.content);
+        } else if (this.app.pendingPageContext) {
+            // Page context was requested via element picker
+            this.app.pendingPageContext = false;
+            const statusMsg = (t('pageContextSet') || 'Page context set') + ` (${charCount.toLocaleString()} chars)${elementInfo}`;
+            this.ui.updateStatus(statusMsg);
+            this.app.setPageContext(true, payload.content);
+            setTimeout(() => this.ui.updateStatus(""), 3000);
+            this.ui.inputFn.focus();
         } else {
-            // Just set page context
-            const statusMsg = (t('elementSelected') || 'Element selected') + ` (${charCount.toLocaleString()} chars)`;
+            // Fallback: just set page context
+            const statusMsg = (t('elementSelected') || 'Element selected') + ` (${charCount.toLocaleString()} chars)${elementInfo}`;
             this.ui.updateStatus(statusMsg);
             this.app.setPageContext(true, payload.content);
             setTimeout(() => this.ui.updateStatus(""), 3000);

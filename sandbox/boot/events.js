@@ -75,10 +75,21 @@ export function bindAppEvents(app, ui, setResizeRef) {
         ui.updateStatus(t('selectSnip'));
     });
 
-    // Page Context Toggle
+    // Page Context Toggle - Now uses Element Picker
     const contextBtn = document.getElementById('page-context-btn');
     if (contextBtn) {
-        contextBtn.addEventListener('click', () => app.togglePageContext());
+        contextBtn.addEventListener('click', () => {
+            // If already active, disable it
+            if (app.pageContextActive) {
+                app.togglePageContext();
+                return;
+            }
+
+            // Otherwise, start element picker to select content
+            app.pendingPageContext = true;
+            ui.updateStatus(t('selectElement') || 'Select content area...');
+            sendToBackground({ action: "START_ELEMENT_PICKER" });
+        });
     }
 
     // Model Selector

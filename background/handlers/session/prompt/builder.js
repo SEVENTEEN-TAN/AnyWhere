@@ -11,7 +11,8 @@ export class PromptBuilder {
         let systemPreamble = "";
 
         if (request.includePageContext) {
-            let pageContent = await getActiveTabContent();
+            // Use pre-selected content from element picker if available, otherwise fetch entire page
+            let pageContent = request.pageContextContent || await getActiveTabContent();
 
             if (pageContent) {
                 // Apply Context Limit
