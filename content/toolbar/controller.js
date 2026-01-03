@@ -66,16 +66,14 @@
 
             // Restore floating model preference
             chrome.storage.local.get(['gemini_floating_model', 'gemini_gem_id'], (result) => {
-                if (result.gemini_floating_model) {
-                    this.ui.setSelectedModel(result.gemini_floating_model);
-                }
+                this.savedModel = result.gemini_floating_model;
                 if (result.gemini_gem_id) {
                     this.storedGemId = result.gemini_gem_id;
                 }
             });
             
-            // Load Gems list and populate model selector
-            this.loadGemsList();
+            // Load models and Gems list
+            this.loadModelsAndGems();
 
             // Listen for settings changes
             chrome.storage.onChanged.addListener((changes, area) => {
@@ -153,6 +151,95 @@
 
             this.currentMode = 'ask'; // 重置模式
             this.visible = true; // Ensure logic knows window is visible
+        }
+        
+        async loadModelsAndGems() {
+            try {
+                // Check if runtime is available before attempting message
+                if (!chrome.runtime?.id) {
+                    console.log('[ToolbarController] Extension context invalidated, skipping models load');
+                    return;
+                }
+                
+                // Load models first, then Gems
+                await this.loadModelsList();
+                await this.loadGemsList();
+                
+                // Restore saved model after loading
+                if (this.savedModel) {
+                    this.ui.setSelectedModel(this.savedModel);
+                }
+            } catch (error) {
+                console.log('[ToolbarController] Models/Gems load failed (non-critical):', error.message);
+            }
+        }
+        
+        async loadModelsList() {
+            try {
+                const response = await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        console.log('[ToolbarController] Models load timeout');
+                        reject(new Error('Timeout'));
+                    }, 10000);
+                    
+                    chrome.runtime.sendMessage(
+                        { action: 'FETCH_MODELS_LIST', userIndex: '0', forceRefresh: false },
+                        (response) => {
+                            clearTimeout(timeout);
+                            
+                            if (chrome.runtime.lastError) {
+                                const errorMsg = chrome.runtime.lastError.message;
+                                if (errorMsg.includes('Receiving end does not exist')) {
+                                    console.log('[ToolbarController] Background not ready for models');
+                                    resolve({ models: [] });
+                                } else {
+                                    reject(new Error(errorMsg));
+                                }
+                                return;
+                            }
+                            
+                            resolve(response);
+                        }
+                    );
+                });
+                
+                if (response && response.models && response.models.length > 0) {
+                    console.log(`[ToolbarController] Loaded ${response.models.length} models`);
+                    this.populateModelsToSelector(response.models);
+                } else {
+                    console.log('[ToolbarController] No models available');
+                }
+            } catch (error) {
+                console.log('[ToolbarController] Models load failed:', error.message);
+            }
+        }
+        
+        populateModelsToSelector(models) {
+            const modelSelect = this.ui.elements?.askModelSelect;
+            if (!modelSelect) {
+                console.warn('[ToolbarController] Model select not found');
+                return;
+            }
+            
+            // Find or create "Standard Models" optgroup
+            let modelGroup = modelSelect.querySelector('optgroup[label="Standard Models"]');
+            if (!modelGroup) {
+                modelGroup = document.createElement('optgroup');
+                modelGroup.label = 'Standard Models';
+                modelSelect.insertBefore(modelGroup, modelSelect.firstChild);
+            } else {
+                modelGroup.innerHTML = '';
+            }
+            
+            // Add model options
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name || model.id;
+                modelGroup.appendChild(option);
+            });
+            
+            console.log(`[ToolbarController] Populated ${models.length} models to selector`);
         }
         
         async loadGemsList() {

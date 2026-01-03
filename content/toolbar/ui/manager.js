@@ -35,6 +35,7 @@
             this.renderer = null;
             this.actionsDelegate = null;
             this.codeCopyHandler = null;
+
         }
 
         setCallbacks(callbacks) {
@@ -90,6 +91,7 @@
             this.events.bind(this.view.elements, this.view.elements.askWindow);
 
             this.isBuilt = true;
+            console.log("[ToolbarUI] Build complete");
         }
 
         // --- Delegate Accessors ---
@@ -100,6 +102,12 @@
 
         get codeCopy() {
             return this.codeCopyHandler;
+        }
+
+        // --- Property Accessors ---
+
+        get elements() {
+            return this.view ? this.view.elements : null;
         }
 
         // --- Other Handlers ---
@@ -133,11 +141,12 @@
         // --- Public API ---
 
         show(rect, mousePoint) {
-            this.view.showToolbar(rect, mousePoint);
+            if (!this.isBuilt) this.build();
+            if (this.view) this.view.showToolbar(rect, mousePoint);
         }
 
         hide() {
-            this.view.hideToolbar();
+            if (this.view) this.view.hideToolbar();
         }
 
         hideAll() {
@@ -147,20 +156,35 @@
         }
 
         showImageButton(rect) {
-            this.view.showImageButton(rect);
+            if (!this.isBuilt) this.build();
+            if (this.view) this.view.showImageButton(rect);
         }
 
         hideImageButton() {
-            this.view.hideImageButton();
+            if (this.view) this.view.hideImageButton();
+        }
+
+        resetWindowDrag() {
+            if (this.dragController) {
+                this.dragController.reset();
+            }
         }
 
         async showAskWindow(rect, contextText, title, mousePoint = null, gemId = null) {
-            await this.ensureWindowLoaded();
-            if (this.windowView) {
-                this.windowView.show(rect, contextText, title, () => this.resetWindowDrag(), mousePoint, gemId);
+            // Ensure UI is built before showing window
+            if (!this.isBuilt) {
+                console.log("[ToolbarUI] Building UI before showAskWindow...");
+                this.build();
             }
-        } showLoading(msg) {
-            this.view.showLoading(msg);
+
+            if (this.view && this.view.windowView) {
+                const self = this;
+                this.view.windowView.show(rect, contextText, title, function() { self.resetWindowDrag(); }, mousePoint, gemId);
+            }
+        }
+
+        showLoading(msg) {
+            if (this.view) this.view.showLoading(msg);
         }
 
         stopLoading() {
@@ -195,16 +219,16 @@
         }
 
         showError(text) {
-            this.view.showError(text);
+            if (this.view) this.view.showError(text);
         }
 
         hideAskWindow() {
-            this.view.hideAskWindow();
+            if (this.view) this.view.hideAskWindow();
             this.resetGrammarMode();
         }
 
         setInputValue(text) {
-            this.view.setInputValue(text);
+            if (this.view) this.view.setInputValue(text);
         }
 
         // --- Model Selection ---
@@ -252,9 +276,10 @@
         // --- Utils ---
 
         showCopySelectionFeedback(success) {
+            if (!this.view) return;
             this.view.toggleCopySelectionIcon(success);
             setTimeout(() => {
-                this.view.toggleCopySelectionIcon(null);
+                if (this.view) this.view.toggleCopySelectionIcon(null);
             }, 2000);
         }
 

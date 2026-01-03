@@ -58,10 +58,7 @@
                 <span class="window-title" id="window-title">${t.windowTitle}</span>
                 <div class="header-actions">
                     <select id="ask-model-select" class="ask-model-select">
-                        <option value="gemini-2.5-flash">Fast</option>
-                        <option value="gemini-2.5-pro">Thinking</option>
-                        <option value="gemini-3.0-pro">3 Pro</option>
-                        <!-- Gems will be dynamically added here -->
+                        <!-- Models and Gems will be dynamically loaded -->
                     </select>
                     <button class="icon-btn" id="btn-header-close" title="${t.close}">${ICONS.CLOSE}</button>
                 </div>

@@ -104,6 +104,9 @@
 
         resizeSelect: function(select) {
             if (!select) return;
+            if (!select.options || select.options.length === 0) return; // Skip if empty
+            if (select.selectedIndex < 0) return; // Skip if no selection
+            
             const span = document.createElement('span');
             span.style.visibility = 'hidden';
             span.style.position = 'absolute';
