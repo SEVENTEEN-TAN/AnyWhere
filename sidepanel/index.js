@@ -343,6 +343,21 @@ window.addEventListener('message', (event) => {
         });
     }
 
+    if (action === 'GET_AUTO_SCROLL_SETTINGS') {
+        chrome.storage.local.get(['geminiAutoScrollInterval', 'geminiAutoScrollMaxTime', 'geminiContextLimit'], (res) => {
+            if (iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    action: 'RESTORE_AUTO_SCROLL_SETTINGS',
+                    payload: {
+                        interval: res.geminiAutoScrollInterval !== undefined ? res.geminiAutoScrollInterval : 200,
+                        maxTime: res.geminiAutoScrollMaxTime !== undefined ? res.geminiAutoScrollMaxTime : 15000,
+                        contextLimit: res.geminiContextLimit !== undefined ? res.geminiContextLimit : 500000
+                    }
+                }, '*');
+            }
+        });
+    }
+
     // --- Sync Storage Updates back to Local Cache (For Speed next time) ---
 
     if (action === 'SAVE_SESSIONS') {
@@ -386,6 +401,16 @@ window.addEventListener('message', (event) => {
     }
     if (action === 'SAVE_WORKSPACE_PROMPT') {
         chrome.storage.local.set({ geminiWorkspacePrompt: payload });
+    }
+    if (action === 'SAVE_AUTO_SCROLL_SETTINGS') {
+        const { interval, maxTime } = payload;
+        chrome.storage.local.set({ 
+            geminiAutoScrollInterval: interval,
+            geminiAutoScrollMaxTime: maxTime
+        });
+    }
+    if (action === 'SAVE_CONTEXT_LIMIT') {
+        chrome.storage.local.set({ geminiContextLimit: payload });
     }
 
     if (action === 'DOWNLOAD_SVG') {

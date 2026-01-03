@@ -75,10 +75,10 @@ export class PromptController {
 
         // Prepare Context & Model
         const selectedModel = options.forceModel || this.app.getSelectedModel();
-        
+
         // Get Gem ID from the selected model (if it's a Gem)
         let effectiveGemId = options.gemId || this.app.getSelectedGemId();
-        
+
         if (selectedModel === 'gem' && !effectiveGemId) {
             console.warn('[PromptController] Gem model selected but no Gem ID found!');
         }
@@ -112,7 +112,7 @@ export class PromptController {
         console.log("[PromptController] Gem ID:", effectiveGemId || '无');
         console.log("[PromptController] 附件数量:", files.length);
         console.log("[PromptController] MCP 服务:", mcpIds);
-        console.log("[PromptController] 完整Payload:", payload);
+        console.log("[PromptController] 完整Payload:", JSON.stringify(payload, null, 2));
         console.log("[PromptController] =====================================\n");
 
         sendToBackground(payload);

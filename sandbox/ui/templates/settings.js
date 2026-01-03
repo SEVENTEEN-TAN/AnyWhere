@@ -53,6 +53,35 @@ export const SettingsTemplate = `
                 </div>
 
                 <div class="setting-group">
+                    <h4>Auto-Scroll Settings</h4>
+                    <p class="setting-desc" style="margin-bottom: 12px;">Configure behavior when summarizing full pages. Press ESC to cancel scrolling.</p>
+
+                    <div class="shortcut-row">
+                        <div style="flex: 1;">
+                            <label style="font-weight: 500; display: block; margin-bottom: 2px;">Scroll Interval (ms)</label>
+                            <span class="setting-desc">Time between scrolls. Default: 200ms</span>
+                        </div>
+                        <input type="number" id="scroll-interval" class="shortcut-input" placeholder="200" style="width: 80px;">
+                    </div>
+
+                    <div class="shortcut-row">
+                        <div style="flex: 1;">
+                            <label style="font-weight: 500; display: block; margin-bottom: 2px;">Max Duration (ms)</label>
+                            <span class="setting-desc">Max scroll time. Default: 15000ms (15s)</span>
+                        </div>
+                        <input type="number" id="scroll-max-time" class="shortcut-input" placeholder="15000" style="width: 80px;">
+                    </div>
+
+                    <div class="shortcut-row">
+                        <div style="flex: 1;">
+                            <label style="font-weight: 500; display: block; margin-bottom: 2px;">Max Context Length (chars)</label>
+                            <span class="setting-desc">0 = unlimited. Truncates if exceeded. Default: 500000</span>
+                        </div>
+                        <input type="number" id="context-limit" class="shortcut-input" placeholder="500000" style="width: 100px;">
+                    </div>
+                </div>
+
+                <div class="setting-group">
                     <h4 style="display:flex; align-items:center; gap:6px;">
                         <span>Model Context Protocol (MCP)</span>
                         <span class="badge" style="background:#4caf50; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">BETA</span>

@@ -87,7 +87,12 @@ export class AppController {
         }
     }
 
-    setPageContext(enable) {
+    setPageContext(enable, customContent = null) {
+        // Store custom content from element picker
+        if (customContent !== null) {
+            this.pickedElementContent = customContent;
+        }
+
         if (this.pageContextActive !== enable) {
             this.togglePageContext();
         } else if (enable) {

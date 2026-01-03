@@ -40,7 +40,11 @@ export class SettingsView {
 
             starEl: get('star-count'),
 
-            sidebarRadios: document.querySelectorAll('input[name="sidebar-behavior"]')
+            sidebarRadios: document.querySelectorAll('input[name="sidebar-behavior"]'),
+
+            scrollIntervalInput: get('scroll-interval'),
+            scrollMaxTimeInput: get('scroll-max-time'),
+            contextLimitInput: get('context-limit')
         };
     }
 
@@ -48,7 +52,8 @@ export class SettingsView {
         const { modal, btnClose, btnSave, btnReset, themeSelect, languageSelect,
             inputQuickAsk, inputOpenPanel, textSelectionToggle, imageToolsToggle,
             sidebarRadios, btnDownloadLogs, btnSaveMcp, mcpConfigInput,
-            workspacePath, btnClearWorkspacePath, workspacePromptToggle } = this.elements;
+            workspacePath, btnClearWorkspacePath, workspacePromptToggle,
+            scrollIntervalInput, scrollMaxTimeInput, contextLimitInput } = this.elements;
 
         // Modal actions
         if (btnClose) btnClose.addEventListener('click', () => this.close());
@@ -90,6 +95,21 @@ export class SettingsView {
             });
         }
 
+        // Auto-Scroll Settings (Auto-save on blur)
+        if (scrollIntervalInput) {
+            scrollIntervalInput.addEventListener('blur', (e) => {
+                this.fire('onAutoScrollChange', e.target.value, scrollMaxTimeInput ? scrollMaxTimeInput.value : 15000);
+            });
+        }
+        if (scrollMaxTimeInput) {
+            scrollMaxTimeInput.addEventListener('blur', (e) => {
+                this.fire('onAutoScrollChange', scrollIntervalInput ? scrollIntervalInput.value : 200, e.target.value);
+            });
+        }
+        if (contextLimitInput) {
+            contextLimitInput.addEventListener('blur', (e) => this.fire('onContextLimitChange', e.target.value));
+        }
+
         // Instant Updates
         if (themeSelect) {
             themeSelect.addEventListener('change', (e) => this.fire('onThemeChange', e.target.value));
@@ -100,10 +120,10 @@ export class SettingsView {
 
         // Toggles
         if (textSelectionToggle) {
-            textSelectionToggle.addEventListener('change', (e) => this.fire('onTextSelectionChange', e.target.value));
+            textSelectionToggle.addEventListener('change', (e) => this.fire('onTextSelectionChange', e.target.checked));
         }
         if (imageToolsToggle) {
-            imageToolsToggle.addEventListener('change', (e) => this.fire('onImageToolsChange', e.target.value));
+            imageToolsToggle.addEventListener('change', (e) => this.fire('onImageToolsChange', e.target.checked));
         }
         if (sidebarRadios) {
             sidebarRadios.forEach(radio => {
@@ -130,6 +150,12 @@ export class SettingsView {
                 this.close();
             }
         });
+    }
+
+    setAutoScrollSettings(interval, maxTime, contextLimit) {
+        if (this.elements.scrollIntervalInput) this.elements.scrollIntervalInput.value = interval;
+        if (this.elements.scrollMaxTimeInput) this.elements.scrollMaxTimeInput.value = maxTime;
+        if (this.elements.contextLimitInput) this.elements.contextLimitInput.value = contextLimit;
     }
 
     handleSave() {
@@ -253,7 +279,7 @@ export class SettingsView {
         return this.elements.starEl && this.elements.starEl.dataset.fetched === "true";
     }
 
-    fire(event, data) {
-        if (this.callbacks[event]) this.callbacks[event](data);
+    fire(event, ...args) {
+        if (this.callbacks[event]) this.callbacks[event](...args);
     }
 }

@@ -41,6 +41,87 @@ export function setupMessageListener(sessionManager, imageHandler, controlManage
             return false;
         }
 
+        // --- ELEMENT PICKER ---
+        // Forward START_ELEMENT_PICKER from Sidepanel to Content Script
+        if (request.action === 'START_ELEMENT_PICKER') {
+            (async () => {
+                try {
+                    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                    if (!tab?.id) {
+                        sendResponse({ success: false, error: 'No active tab' });
+                        return;
+                    }
+
+                    // Check if it's a restricted URL
+                    if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('edge://') || tab.url?.startsWith('about:')) {
+                        sendResponse({ success: false, error: 'Cannot run on browser internal pages' });
+                        return;
+                    }
+
+                    try {
+                        // Try to send message to existing content script
+                        await chrome.tabs.sendMessage(tab.id, { action: 'START_ELEMENT_PICKER' });
+                        sendResponse({ success: true });
+                    } catch (e) {
+                        // Content script not loaded, try to inject it first
+                        console.log('[Background] Content script not loaded, injecting...');
+
+                        try {
+                            // Inject the required scripts
+                            await chrome.scripting.executeScript({
+                                target: { tabId: tab.id },
+                                files: [
+                                    'content/scroll_utils.js',
+                                    'content/element_picker.js'
+                                ]
+                            });
+
+                            // Wait a bit for scripts to initialize
+                            await new Promise(resolve => setTimeout(resolve, 100));
+
+                            // Try again
+                            await chrome.tabs.sendMessage(tab.id, { action: 'START_ELEMENT_PICKER' });
+                            sendResponse({ success: true });
+                        } catch (injectError) {
+                            console.error('[Background] Failed to inject scripts:', injectError);
+                            sendResponse({ success: false, error: 'Failed to inject element picker. Please refresh the page.' });
+                        }
+                    }
+                } catch (e) {
+                    console.error('[Background] START_ELEMENT_PICKER error:', e);
+                    sendResponse({ success: false, error: e.message });
+                }
+            })();
+            return true;
+        }
+
+        // Forward ELEMENT_PICKED from Content Script to Sidepanel
+        if (request.action === 'ELEMENT_PICKED') {
+            chrome.runtime.sendMessage({
+                action: 'BACKGROUND_MESSAGE',
+                payload: {
+                    action: 'ELEMENT_PICKED',
+                    payload: request.payload
+                }
+            }).catch(() => {
+                // Sidepanel might not be open, ignore error
+            });
+            return false;
+        }
+
+        // Forward ELEMENT_PICKER_CANCELLED from Content Script to Sidepanel
+        if (request.action === 'ELEMENT_PICKER_CANCELLED') {
+            chrome.runtime.sendMessage({
+                action: 'BACKGROUND_MESSAGE',
+                payload: {
+                    action: 'ELEMENT_PICKER_CANCELLED'
+                }
+            }).catch(() => {
+                // Sidepanel might not be open, ignore error
+            });
+            return false;
+        }
+
         // --- MCP MANAGEMENT ---
         if (request.action === 'MCP_SAVE_CONFIG') {
             mcpManager.saveConfig(request.json).then(result => {

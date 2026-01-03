@@ -72,6 +72,8 @@
         "content/toolbar/stream.js", 
         "content/toolbar/utils/input.js",
         "content/selection.js",
+        "content/scroll_utils.js",
+        "content/element_picker.js",
         "content/toolbar/dispatch.js",
         "content/toolbar/crop.js",
         "content/toolbar/controller.js",

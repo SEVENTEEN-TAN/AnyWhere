@@ -11,14 +11,30 @@ export class PromptBuilder {
         let systemPreamble = "";
 
         if (request.includePageContext) {
-            const pageContent = await getActiveTabContent();
+            let pageContent = await getActiveTabContent();
+
             if (pageContent) {
+                // Apply Context Limit
+                const settings = await chrome.storage.local.get('geminiContextLimit');
+                const limit = settings.geminiContextLimit !== undefined ? parseInt(settings.geminiContextLimit) : 500000;
+
+                if (limit > 0 && pageContent.length > limit) {
+                    console.log(`[PromptBuilder] Configured Limit: ${limit}, Actual: ${pageContent.length}. Truncating...`);
+                    // Keep the Last N chars (usually most relevant for reading bottom-up or recent context)
+                    // Or first N? Usually Start fits better for "Read this article".
+                    // Let's keep Start for now as it contains headers/intros.
+                    pageContent = pageContent.slice(0, limit) + `\n\n[...Truncated due to limit ${limit}...]`;
+                }
+
+                console.log(`[PromptBuilder] 成功获取网页上下文 (长度: ${pageContent.length}):\n${pageContent}`);
                 systemPreamble += `Webpage Context:
 \`\`\`text
 ${pageContent}
 \`\`\`
 
 `;
+            } else {
+                console.log("[PromptBuilder] 未获取到网页上下文 (pageContent 为空)");
             }
         }
 
@@ -27,7 +43,7 @@ ${pageContent}
             if (this.controlManager) {
                 await this.controlManager.enableControlMode();
             }
-            
+
             systemPreamble += BROWSER_CONTROL_PREAMBLE;
 
             // Inject Snapshot (Structured Vision)
@@ -54,6 +70,15 @@ ${snapshot}
         if (systemPreamble) {
             finalPrompt = systemPreamble + "Question: " + finalPrompt;
         }
+        
+        console.log("[PromptBuilder] ========== 构建最终 Prompt ===========");
+        console.log("[PromptBuilder] 原始用户输入:", request.text);
+        console.log("[PromptBuilder] 包含网页上下文:", request.includePageContext ? '是' : '否');
+        console.log("[PromptBuilder] 浏览器控制模式:", request.enableBrowserControl ? '是' : '否');
+        console.log("[PromptBuilder] 最终 Prompt 长度:", finalPrompt.length);
+        console.log("[PromptBuilder] 最终 Prompt 内容:\n", finalPrompt);
+        console.log("[PromptBuilder] ============================================\n");
+        
         return finalPrompt;
     }
 }

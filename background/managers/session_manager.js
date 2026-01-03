@@ -56,6 +56,8 @@ export class GeminiSessionManager {
                 }
                 // ---------------------
 
+                console.log("[SessionManager] 准备发送给 Gemini 的最终文本:", JSON.stringify(finalText, null, 2));
+
                 let response = await sendGeminiMessage(
                     finalText,
                     context,

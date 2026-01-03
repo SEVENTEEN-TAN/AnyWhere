@@ -62,6 +62,19 @@ export class MessageHandler {
             return;
         }
 
+        // 5.1 Element Picker Result
+        if (request.action === "ELEMENT_PICKED") {
+            this.handleElementPicked(request);
+            return;
+        }
+
+        // 5.2 Element Picker Cancelled
+        if (request.action === "ELEMENT_PICKER_CANCELLED") {
+            this.app.pendingSummarize = false;
+            this.ui.updateStatus('');
+            return;
+        }
+
         // 6. Page Context Toggle (from Context Menu)
         if (request.action === "TOGGLE_PAGE_CONTEXT") {
             this.app.setPageContext(request.enable);
@@ -237,9 +250,9 @@ export class MessageHandler {
         console.log("[MessageHandler] 图片数量:", request.images ? request.images.length : 0);
         console.log("[MessageHandler] 上下文ID:", request.context?.contextIds);
         console.log("[MessageHandler] 自动生成标题:", request.title || '无');
-        console.log("[MessageHandler] 完整响应:", request);
+        console.log("[MessageHandler] 完整响应:", JSON.stringify(request, null, 2));
         console.log("[MessageHandler] ========================================\n");
-        
+
         this.app.isGenerating = false;
         this.ui.setLoading(false);
 
@@ -364,6 +377,102 @@ export class MessageHandler {
             this.ui.updateStatus(t('noTextSelected'));
             setTimeout(() => this.ui.updateStatus(""), 2000);
         }
+    }
+
+    handleElementPicked(request) {
+        const payload = request.payload || request;
+
+        if (!payload.content) {
+            this.ui.updateStatus(t('noContentFound') || 'No content found in selected element');
+            setTimeout(() => this.ui.updateStatus(""), 3000);
+            this.app.pendingSummarize = false;
+            return;
+        }
+
+        // Store the content
+        this.app.pickedElementContent = payload.content;
+        this.app.pickedElementSelector = payload.selector;
+
+        const charCount = payload.content.length;
+
+        // Check if this is a pending summarize action
+        if (this.app.pendingSummarize) {
+            this.app.pendingSummarize = false;
+            this.ui.updateStatus(`${t('summarizing') || 'Summarizing'} (${charCount.toLocaleString()} chars)...`);
+
+            // Execute summarize with the picked content
+            this.executeSummarize(payload.content);
+        } else {
+            // Just set page context
+            const statusMsg = (t('elementSelected') || 'Element selected') + ` (${charCount.toLocaleString()} chars)`;
+            this.ui.updateStatus(statusMsg);
+            this.app.setPageContext(true, payload.content);
+            setTimeout(() => this.ui.updateStatus(""), 3000);
+            this.ui.inputFn.focus();
+        }
+    }
+
+    async executeSummarize(content) {
+        // Get tab info for display
+        const { title, url } = await this.app.getActiveTabInfo();
+
+        const prompt = `请将以下内容重构为一份【结构化深度研报】,严格按以下格式输出:
+
+## 1. 核心摘要
+用100-200字概括内容的核心要点、背景及价值。
+
+## 2. 知识脑图 (Markmap)
+生成markmap代码块,可视化展示逻辑结构。根节点用 #,子节点用 ## 或 -。
+
+\`\`\`markmap
+# 主题(用实际内容替换)
+## 核心板块1
+  - 关键点1.1
+  - 关键点1.2
+## 核心板块2
+  - 关键点2.1
+  - 关键点2.2
+\`\`\`
+
+## 3. 深度内容明细
+将思维导图"文字化",层层拆解内容。
+
+**格式要求**:
+- 必须使用 H3(###) 和 H4(####) 标题
+- 每个H4下必须有详细段落(含数据/案例/原理)
+- 禁止简单列表或一句话敷衍
+
+## 4. 总结与启示
+用精炼语言总结,给出1-2个核心结论或启发。
+
+---
+
+**重要**:回答完上述4个部分后,必须在末尾生成3个追问问题。
+
+要求:
+1. 短小精悍(≤20字),直击好奇心/痛点
+2. 侧重"如何应用"、"底层逻辑"、"反直觉细节"
+
+严格使用此格式:
+<suggestions>
+["问题1", "问题2", "问题3"]
+</suggestions>
+
+---
+
+以下是需要总结的内容:
+
+${content}`;
+
+        const displayTitle = title ? `[${title}]` : 'Selected Content';
+        const displayUrl = url ? `(${url})` : '';
+        const linkText = title && url ? `${displayTitle}${displayUrl}` : (title || 'Selected Content');
+
+        this.app.prompt.executePrompt(prompt, [], {
+            includePageContext: false, // Content already included in prompt
+            displayPrompt: `总结 ${linkText}`,
+            sessionTitle: title || 'Summary'
+        });
     }
 
     // Called by AppController on cancel/switch

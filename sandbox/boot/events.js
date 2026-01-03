@@ -32,92 +32,14 @@ export function bindAppEvents(app, ui, setResizeRef) {
     // Tools
 
     // Summarize Button
-    // Summarize Button (Combined with MindMap)
+    // Summarize Button (Combined with MindMap) - Now with Element Picker
     const summarizeBtn = document.getElementById('summarize-btn');
     if (summarizeBtn) {
-        summarizeBtn.addEventListener('click', async () => { // Make async
-            ui.setLoading(true); // Show loading immediately to give feedback
-            const { title, url } = await app.getActiveTabInfo();
-            ui.setLoading(false);
-
-            const prompt = `请将网页内容重构为一份【结构化深度研报】,严格按以下格式输出:
-
-## 1. 核心摘要
-用100-200字概括网页的核心内容、背景及价值。
-
-## 2. 知识脑图 (Markmap)
-生成markmap代码块,可视化展示逻辑结构。根节点用 #,子节点用 ## 或 -。
-
-\`\`\`markmap
-# 文章主题(用实际标题替换)
-## 核心板块1(如:技术架构)
-  - 关键点1.1
-  - 关键点1.2
-## 核心板块2(如:应用场景)
-  - 关键点2.1
-  - 关键点2.2
-## 核心板块3
-  - ...
-\`\`\`
-
-## 3. 深度内容明细
-将思维导图"文字化",层层拆解内容。
-
-**格式要求**:
-- 必须使用 H3(###) 和 H4(####) 标题
-- 每个H4下必须有详细段落(含数据/案例/原理)
-- 禁止简单列表或一句话敷衍
-- 标题格式: ### 板块名:具体主题 (不要方括号)
-
-**示例**:
-
-### 技术架构:Serverless设计
-#### 核心组件:Cloudflare Workers
-在边缘计算节点运行JavaScript代码,无需管理服务器。Workers采用V8引擎隔离技术,启动时间<5ms,支持全球200+数据中心部署。相比传统Lambda,冷启动延迟降低90%。关键优势在于...(继续深入)
-
-#### 数据存储:D1分布式数据库
-Cloudflare的SQL数据库,基于SQLite构建。支持ACID事务,免费额度100K读/天。采用多区域复制策略,RPO<1秒。在本项目中用于存储邮件元数据和配置,结构设计为...(继续深入)
-
-### 部署策略:多模态方案
-#### CLI自动化部署
-...
-
-**反面示例(禁止模仿)**:
-### 技术架构
-- Cloudflare Workers
-- D1数据库
-- Pages前端
-(这种简单列表是错误的!)
-
-## 4. 总结与启示
-用精炼语言总结全文,给出1-2个核心结论或启发。`;
-
-            const displayTitle = title ? `[${title}]` : 'Current Page';
-            const displayUrl = url ? `(${url})` : '';
-            const linkText = title && url ? `${displayTitle}${displayUrl}` : (title || url || 'Current Page');
-
-            // Add Suggestion Instructions (No visible heading, block only)
-            const promptWithSuggestions = prompt + `
-
----
-
-**重要**:回答完上述4个部分后,必须在末尾生成3个追问问题。
-
-要求:
-1. 短小精悍(≤20字),直击好奇心/痛点
-2. 侧重"如何应用"、"底层逻辑"、"反直觉细节"
-3. 避免宽泛问题(如"主要内容是什么")
-
-严格使用此格式(不加标题,直接输出):
-<suggestions>
-["问题1", "问题2", "问题3"]
-</suggestions>`;
-
-            app.prompt.executePrompt(promptWithSuggestions, [], {
-                includePageContext: true,
-                displayPrompt: `总结 ${linkText}`,
-                sessionTitle: title // Use page title as session title
-            });
+        summarizeBtn.addEventListener('click', async () => {
+            // Set pending action to 'summarize' - will be used when element is picked
+            app.pendingSummarize = true;
+            ui.updateStatus(t('selectElement') || 'Select content area...');
+            sendToBackground({ action: "START_ELEMENT_PICKER" });
         });
     }
 

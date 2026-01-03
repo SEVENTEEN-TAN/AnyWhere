@@ -1,6 +1,6 @@
 
 // sandbox/ui/settings.js
-import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, sendToBackground, requestWorkspaceSettingsFromStorage, saveWorkspacePathToStorage, saveWorkspacePromptToStorage } from '../../lib/messaging.js';
+import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, sendToBackground, requestWorkspaceSettingsFromStorage, saveWorkspacePathToStorage, saveWorkspacePromptToStorage, requestAutoScrollSettingsFromStorage, saveAutoScrollSettingsToStorage, saveContextLimitToStorage } from '../../lib/messaging.js';
 import { setLanguagePreference, getLanguagePreference } from '../core/i18n.js';
 import { SettingsView } from './settings/view.js';
 import { DEFAULT_SHORTCUTS } from '../../lib/constants.js';
@@ -27,14 +27,14 @@ export class SettingsController {
 
             onTextSelectionChange: (val) => { this.textSelectionEnabled = (val === 'on' || val === true); saveTextSelectionToStorage(this.textSelectionEnabled); },
             onImageToolsChange: (val) => { this.imageToolsEnabled = (val === 'on' || val === true); saveImageToolsToStorage(this.imageToolsEnabled); },
-            onSidebarBehaviorChange: (val) => saveSidebarBehaviorToStorage(val),
-            onDownloadLogs: () => this.downloadLogs(),
             onSaveMcp: (json) => this.saveMcpConfig(json),
             onWorkspacePathChange: (path) => this.saveWorkspacePath(path),
-            onWorkspacePromptChange: (enabled) => this.saveWorkspacePrompt(enabled)
+            onWorkspacePromptChange: (enabled) => this.saveWorkspacePrompt(enabled),
+            onAutoScrollChange: (interval, maxTime) => this.saveAutoScrollSettings(interval, maxTime),
+            onContextLimitChange: (limit) => this.saveContextLimit(limit)
         });
 
-        // External Trigger Binding
+        // Monitor external trigger
         const trigger = document.getElementById('settings-btn');
         if (trigger) {
             trigger.addEventListener('click', () => {
@@ -43,7 +43,7 @@ export class SettingsController {
             });
         }
 
-        // Listen for log data & MCP responses & Workspace settings
+        // Listen for log data & MCP responses
         window.addEventListener('message', (e) => {
             if (e.data.action === 'BACKGROUND_MESSAGE' && e.data.payload) {
                 const payload = e.data.payload;
@@ -54,21 +54,14 @@ export class SettingsController {
                     return;
                 }
 
-                // MCP Config Check (heuristic: starts with mcpServers key or checking known structure, 
-                // but since GET_CONFIG returns stringified JSON...)
-                // Actually, background/messages.js sends response directly.
-                // sidepanel wraps it in { payload: response }.
-
-                // If it looks like MCP config (string)
+                // MCP Config
                 if (typeof payload === 'string' && payload.includes('"mcpServers"')) {
                     this.view.setMcpConfig(payload);
                     return;
                 }
 
-                // If it's a save result
+                // Save Result
                 if (payload.success !== undefined && payload.mcpServers === undefined) {
-                    // Assume it's save result if prompt save returns success
-                    // But wait, saveConfig returns { success: true/false }
                     if (payload.success) {
                         alert("MCP Configuration Saved!");
                     } else if (payload.error) {
@@ -76,12 +69,22 @@ export class SettingsController {
                     }
                 }
             }
-            
+
             // Workspace Settings Response
             if (e.data.action === 'RESTORE_WORKSPACE_SETTINGS') {
                 const { path, prompt } = e.data.payload;
                 this.view.setWorkspacePath(path || '');
                 this.view.setWorkspacePrompt(prompt !== false);
+            }
+
+            // Auto-Scroll Settings Response
+            if (e.data.action === 'RESTORE_AUTO_SCROLL_SETTINGS') {
+                const { interval, maxTime, contextLimit } = e.data.payload;
+                this.view.setAutoScrollSettings(
+                    interval !== undefined ? interval : 200,
+                    maxTime !== undefined ? maxTime : 15000,
+                    contextLimit !== undefined ? contextLimit : 500000
+                );
             }
         });
     }
@@ -103,7 +106,7 @@ export class SettingsController {
         // Refresh from storage
         requestTextSelectionFromStorage();
         requestImageToolsFromStorage();
-        
+
         // Load workspace settings via messaging
         requestWorkspaceSettingsFromStorage();
 
@@ -111,6 +114,9 @@ export class SettingsController {
         this.fetchMcpConfig();
 
         this.fetchGithubStars();
+
+        // Load Auto Scroll Settings via messaging
+        requestAutoScrollSettingsFromStorage();
     }
 
     saveSettings(data) {
@@ -201,15 +207,28 @@ export class SettingsController {
     }
 
     // --- Workspace Settings ---
-    
+
     saveWorkspacePath(path) {
         saveWorkspacePathToStorage(path);
         console.log('[Settings] Workspace path saved:', path || 'default');
     }
-    
+
     saveWorkspacePrompt(enabled) {
         saveWorkspacePromptToStorage(enabled);
         console.log('[Settings] Workspace prompt setting saved:', enabled);
+    }
+
+    saveAutoScrollSettings(interval, maxTime) {
+        const i = parseInt(interval) || 200;
+        const m = parseInt(maxTime) || 15000;
+        saveAutoScrollSettingsToStorage(i, m);
+        console.log('[Settings] Auto-Scroll settings saved:', i, m);
+    }
+
+    saveContextLimit(limit) {
+        const l = parseInt(limit);
+        saveContextLimitToStorage(isNaN(l) ? 500000 : l);
+        console.log('[Settings] Context limit saved:', l);
     }
 
     async fetchGithubStars() {
