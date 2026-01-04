@@ -31,13 +31,25 @@ export function transformMarkdown(text) {
 
     const mathHandler = new MathHandler();
 
-    // 1. Protect Math blocks
+    // 1. Protect Math blocks first (before any other processing)
     let processedText = mathHandler.protect(text || '');
 
-    // 2. Parse Markdown
+    // 2. Fix common Markdown escape errors from AI generation
+    // Gemini sometimes over-escapes Markdown characters like \#\#\# or \*\*
+    processedText = processedText
+        .replace(/\\#/g, '#')      // Fix: \# → #
+        .replace(/\\\*/g, '*')     // Fix: \* → *
+        .replace(/\\_/g, '_')      // Fix: \_ → _
+        .replace(/\\\[/g, '[')     // Fix: \[ → [ (not in math context, already protected)
+        .replace(/\\\]/g, ']')     // Fix: \] → ]
+        .replace(/\\`/g, '`')      // Fix: \` → `
+        .replace(/\\>/g, '>')      // Fix: \> → >
+        .replace(/\\-/g, '-');     // Fix: \- → -
+
+    // 3. Parse Markdown
     let html = marked.parse(processedText);
 
-    // 3. Restore Math blocks
+    // 4. Restore Math blocks
     html = mathHandler.restore(html);
 
     return html;

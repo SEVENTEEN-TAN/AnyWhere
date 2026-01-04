@@ -173,6 +173,7 @@
     /**
      * Find content blocks within a container
      * Automatically detects common content block patterns
+     * Uses intelligent selector scoring to find the best match
      * @param {Element} container - The container element
      * @returns {Element[]} - Array of content block elements
      */
@@ -186,28 +187,46 @@
             // Article patterns
             'article', '.article', '.article-content',
             '.entry', '.entry-content',
+            // Document/Office patterns (for .docx-page, Google Docs, etc.)
+            '.docx-page > *', '.doc-content > *', '.kix-paginateddocumentplugin > *',
             // Generic content patterns
-            '.content-block', '.text-block', '.item',
+            '.content-block', '.text-block', '.item', '.block',
+            // Paragraph-level patterns
+            'p', '.paragraph', '.text',
             // Fallback to direct children with substantial text
-            ':scope > div', ':scope > section', ':scope > p'
+            ':scope > div', ':scope > section', ':scope > article'
         ];
 
-        let blocks = [];
+        let bestBlocks = [];
+        let bestScore = 0;
 
-        // Try each selector
+        // Try each selector and score the results
         for (const selector of contentSelectors) {
             try {
                 const found = container.querySelectorAll(selector);
-                if (found.length > 0) {
-                    // Filter to only include blocks with meaningful text content
-                    const meaningful = Array.from(found).filter(el => {
-                        const text = el.innerText?.trim() || '';
-                        return text.length > 50; // At least 50 chars
-                    });
-                    if (meaningful.length > 0) {
-                        blocks = meaningful;
-                        break;
-                    }
+                if (found.length === 0) continue;
+
+                // Filter to only include blocks with meaningful text content
+                const meaningful = Array.from(found).filter(el => {
+                    const text = el.innerText?.trim() || '';
+                    // Lower threshold to 20 chars for better granularity
+                    return text.length > 20;
+                });
+
+                if (meaningful.length === 0) continue;
+
+                // Calculate score: total text length + block count bonus
+                const totalTextLength = meaningful.reduce((sum, el) => {
+                    return sum + (el.innerText?.trim().length || 0);
+                }, 0);
+
+                // Score = total text + (block count * 100) to favor more blocks
+                const score = totalTextLength + (meaningful.length * 100);
+
+                // Keep the best scoring selector
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestBlocks = meaningful;
                 }
             } catch (e) {
                 // Invalid selector, skip
@@ -215,22 +234,23 @@
         }
 
         // Fallback: if no blocks found, use visible text nodes
-        if (blocks.length === 0) {
+        if (bestBlocks.length === 0) {
             // Get all elements with direct text content
-            const allDivs = container.querySelectorAll('div, p, section, article, li');
-            blocks = Array.from(allDivs).filter(el => {
+            const allDivs = container.querySelectorAll('div, p, section, article, li, span');
+            bestBlocks = Array.from(allDivs).filter(el => {
                 const text = el.innerText?.trim() || '';
                 // Must have meaningful content and be visible
                 const rect = el.getBoundingClientRect();
-                return text.length > 50 && rect.height > 0 && rect.width > 0;
+                return text.length > 20 && rect.height > 0 && rect.width > 0;
             });
         }
 
-        return blocks;
+        return bestBlocks;
     }
 
     /**
      * Collect visible content from the current viewport
+     * Optimized for virtual scrolling and dynamic content
      * @param {Element} container - The scroll container
      * @param {Set} seenFingerprints - Set of already collected fingerprints
      * @param {boolean} isDocumentScroll - Whether scrolling the document
@@ -244,31 +264,47 @@
         const viewportHeight = isDocumentScroll ? window.innerHeight : container.clientHeight;
         const viewportBottom = viewportTop + viewportHeight;
 
-        // Find content blocks
+        // IMPORTANT: Re-scan blocks each time for virtual scrolling support
+        // Virtual scrollers dynamically add/remove DOM elements
         const blocks = findContentBlocks(container);
 
         for (const block of blocks) {
-            // Check if block is in viewport (approximately)
+            // Skip invisible blocks early
             const rect = block.getBoundingClientRect();
-            const blockTop = isDocumentScroll ? rect.top + window.scrollY : rect.top - container.getBoundingClientRect().top + container.scrollTop;
+            if (rect.width === 0 || rect.height === 0) continue;
+
+            // Calculate block position relative to container
+            const blockTop = isDocumentScroll
+                ? rect.top + window.scrollY
+                : rect.top - container.getBoundingClientRect().top + container.scrollTop;
             const blockBottom = blockTop + rect.height;
 
-            // Block should be at least partially visible
-            const isVisible = blockBottom > viewportTop && blockTop < viewportBottom;
+            // More generous visibility check: block is at least 10% visible
+            const overlapTop = Math.max(viewportTop, blockTop);
+            const overlapBottom = Math.min(viewportBottom, blockBottom);
+            const overlapHeight = overlapBottom - overlapTop;
+            const visibleRatio = overlapHeight / rect.height;
+
+            const isVisible = overlapHeight > 0 && visibleRatio > 0.1;
 
             if (isVisible) {
                 let text = block.innerText?.trim() || '';
                 if (text.length < 20) continue; // Skip too short
 
-                // Clean up
+                // Clean up whitespace while preserving Markdown structure
                 text = text
+                    // Replace multiple consecutive whitespace (but preserve single newlines)
+                    .replace(/[ \t]{2,}/g, ' ')
+                    // Remove invisible Unicode characters
+                    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
+                    // Trim each line (remove leading/trailing spaces)
                     .split('\n')
                     .map(line => line.trim())
-                    .filter(line => line.length > 0)
                     .join('\n')
-                    .replace(/\n{3,}/g, '\n\n')
-                    .replace(/[ \t]{2,}/g, ' ')
-                    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '');
+                    // Normalize multiple blank lines to max 2 (important for Markdown headers)
+                    .replace(/\n{4,}/g, '\n\n\n')
+                    // Final trim
+                    .trim();
 
                 const fingerprint = generateFingerprint(text);
 
@@ -366,7 +402,7 @@
                     scrollTarget.scrollTop += distance;
                 }
 
-                // Small delay for DOM to update after scroll
+                // Increased delay for DOM to update (especially for slow pages)
                 setTimeout(() => {
                     // Collect content after scroll
                     const collected = collectVisibleContent(scrollTarget, seenFingerprints, isDocumentScroll);
@@ -374,38 +410,47 @@
                         collectedTexts.push(...collected.newTexts);
                         totalBlocksCollected += collected.newCount;
                         log(`[ScrollCollect] 📝 +${collected.newCount} blocks (total: ${totalBlocksCollected})`);
+                        // Reset bottom retry when new content found
+                        bottomRetryCount = 0;
                     }
-                }, 50);
 
-                // Calculate progress
-                const currentPos = isDocumentScroll
-                    ? window.innerHeight + window.scrollY
-                    : scrollTarget.scrollTop + scrollTarget.clientHeight;
-                const totalHeight = scrollTarget.scrollHeight;
-                const progress = Math.min(Math.round((currentPos / totalHeight) * 100), 100);
-                const remainingPx = totalHeight - currentPos;
+                    // Calculate progress
+                    const currentPos = isDocumentScroll
+                        ? window.innerHeight + window.scrollY
+                        : scrollTarget.scrollTop + scrollTarget.clientHeight;
+                    const totalHeight = scrollTarget.scrollHeight;
+                    const progress = Math.min(Math.round((currentPos / totalHeight) * 100), 100);
+                    const remainingPx = totalHeight - currentPos;
 
-                indicator.textContent = `🔄 收集中... ${progress}% (${totalBlocksCollected} 块)`;
+                    indicator.textContent = `🔄 收集中... ${progress}% (${totalBlocksCollected} 块)`;
 
-                // Check if at bottom
-                if (remainingPx < 100) {
-                    if (scrollTarget.scrollHeight === lastScrollHeight) {
-                        bottomRetryCount++;
-                        if (bottomRetryCount >= maxBottomRetries) {
-                            log(`[ScrollCollect] ✅ Reached bottom`);
-                            indicator.textContent = '✅ 收集完成';
-                            indicator.style.background = 'rgba(52, 199, 89, 0.95)';
-                            finish('complete');
-                            return;
+                    // Periodic progress report (every 10 scrolls)
+                    if (scrollCount % 10 === 0) {
+                        log(`[ScrollCollect] 📊 Progress: ${progress}% | Blocks: ${totalBlocksCollected} | Time: ${Math.round(elapsed/1000)}s`);
+                    }
+
+                    // Check if at bottom
+                    if (remainingPx < 100) {
+                        if (scrollTarget.scrollHeight === lastScrollHeight) {
+                            bottomRetryCount++;
+                            log(`[ScrollCollect] 🔻 At bottom - retry ${bottomRetryCount}/${maxBottomRetries}`);
+                            if (bottomRetryCount >= maxBottomRetries) {
+                                log(`[ScrollCollect] ✅ Reached bottom - no new content`);
+                                indicator.textContent = '✅ 收集完成';
+                                indicator.style.background = 'rgba(52, 199, 89, 0.95)';
+                                finish('complete');
+                                return;
+                            }
+                        } else {
+                            log(`[ScrollCollect] 🆕 Height changed: ${lastScrollHeight} → ${scrollTarget.scrollHeight}px`);
+                            bottomRetryCount = 0;
                         }
                     } else {
                         bottomRetryCount = 0;
                     }
-                } else {
-                    bottomRetryCount = 0;
-                }
 
-                lastScrollHeight = scrollTarget.scrollHeight;
+                    lastScrollHeight = scrollTarget.scrollHeight;
+                }, 150); // Increased from 50ms to 150ms for better rendering support
             }, interval);
 
             function finish(reason = 'unknown') {
