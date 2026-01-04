@@ -778,47 +778,49 @@
                         return null;
                     }
 
-                    // Scroll parent container if exists
-                    if (ScrollUtils) {
-                        const firstEl = elements[0];
-                        const scrollableParent = findScrollableParent(firstEl);
-
-                        if (scrollableParent) {
-                            console.log(`[ElementPicker] Scrolling parent: ${scrollableParent.tagName}`);
-                            try {
-                                await ScrollUtils.scrollElement(scrollableParent, { interval, maxTime });
-                            } catch (e) {
-                                console.warn('[ElementPicker] Scroll failed:', e);
-                            }
-                        }
-
-                        // Scroll each element's internal scroll if any
-                        for (const el of elements) {
-                            if (ScrollUtils.isScrollable(el).isScrollableY) {
-                                try {
-                                    await ScrollUtils.scrollElement(el, { interval, maxTime: Math.min(maxTime, 8000) });
-                                } catch (e) {
-                                    console.warn('[ElementPicker] Element scroll failed:', e);
-                                }
-                            }
-                        }
-                    }
-
-                    // Collect content
+                    // Collect content using incremental collection for SPA support
                     const allContents = [];
-                    for (const el of elements) {
-                        let text = el.innerText || '';
-                        text = text
-                            .split('\n')
-                            .map(line => line.trim())
-                            .filter(line => line.length > 0)
-                            .join('\n')
-                            .replace(/\n{3,}/g, '\n\n')
-                            .replace(/[ \t]{2,}/g, ' ')
-                            .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
-                            .trim();
+                    const firstEl = elements[0];
 
-                        if (text) allContents.push(text);
+                    // Check if selected element or its parent is scrollable
+                    const isFirstElScrollable = ScrollUtils && ScrollUtils.isScrollable(firstEl).isScrollableY;
+                    const scrollableParent = findScrollableParent(firstEl);
+
+                    if (isFirstElScrollable && ScrollUtils && ScrollUtils.scrollAndCollectContent) {
+                        // Selected element itself is scrollable - use incremental collection
+                        console.log(`[ElementPicker] Selected element is scrollable, using incremental collection`);
+                        try {
+                            const content = await ScrollUtils.scrollAndCollectContent(firstEl, { interval, maxTime });
+                            if (content) allContents.push(content);
+                        } catch (e) {
+                            console.warn('[ElementPicker] Incremental scroll failed:', e);
+                        }
+                    } else if (scrollableParent && ScrollUtils && ScrollUtils.scrollAndCollectContent) {
+                        // Parent container is scrollable - use incremental collection on parent
+                        console.log(`[ElementPicker] Found scrollable parent: ${scrollableParent.tagName}`);
+                        try {
+                            const content = await ScrollUtils.scrollAndCollectContent(scrollableParent, { interval, maxTime });
+                            if (content) allContents.push(content);
+                        } catch (e) {
+                            console.warn('[ElementPicker] Incremental scroll failed:', e);
+                        }
+                    } else {
+                        // No scrollable container or scrollAndCollectContent not available - get static content
+                        console.log(`[ElementPicker] No scrollable container, getting static content`);
+                        for (const el of elements) {
+                            let text = el.innerText || '';
+                            text = text
+                                .split('\n')
+                                .map(line => line.trim())
+                                .filter(line => line.length > 0)
+                                .join('\n')
+                                .replace(/\n{3,}/g, '\n\n')
+                                .replace(/[ \t]{2,}/g, ' ')
+                                .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
+                                .trim();
+
+                            if (text) allContents.push(text);
+                        }
                     }
 
                     const finalContent = allContents.length > 1

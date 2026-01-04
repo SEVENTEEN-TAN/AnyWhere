@@ -23,7 +23,7 @@ export async function loadLibs() {
         // Load Marked (Priority for chat rendering)
         // Now loading locally from vendor/ to ensure reliability
         await loadScript('vendor/marked.min.js').catch(e => console.warn("Marked load issue:", e));
-        
+
         // Re-run config now that marked is loaded
         configureMarkdown();
 
@@ -36,8 +36,16 @@ export async function loadLibs() {
             loadScript('vendor/katex.min.js'),
             loadScript('vendor/fuse.basic.min.js')
         ]).then(() => {
-             // Auto-render ext for Katex
-             return loadScript('vendor/auto-render.min.js');
+            // Wrap KaTeX to always use strict: false (suppress Unicode warnings)
+            if (window.katex && window.katex.renderToString) {
+                const originalRender = window.katex.renderToString.bind(window.katex);
+                window.katex.renderToString = (tex, options = {}) => {
+                    return originalRender(tex, { strict: false, ...options });
+                };
+                console.log("[KaTeX] Wrapped renderToString with strict: false");
+            }
+            // Auto-render ext for Katex
+            return loadScript('vendor/auto-render.min.js');
         }).catch(e => console.warn("Optional libs load failed", e));
 
         console.log("Lazy dependencies loaded from local vendor.");

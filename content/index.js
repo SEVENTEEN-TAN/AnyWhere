@@ -132,17 +132,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             const interval = parseInt(settings.geminiAutoScrollInterval) || 200;
             const maxTime = parseInt(settings.geminiAutoScrollMaxTime) || 15000;
 
-            // Helper function to scroll an element
-            async function scrollElement(el) {
-                if (!ScrollUtils) return;
-
-                const scrollInfo = ScrollUtils.isScrollable(el);
-                if (scrollInfo.isScrollableY) {
-                    console.log(`[ElementPicker] Scrolling element: ${el.tagName}.${el.className?.split(' ')[0] || ''}`);
-                    await ScrollUtils.scrollElement(el, { interval, maxTime: Math.min(maxTime, 8000) });
-                }
-            }
-
             // Helper function to find scrollable parent
             function findScrollableParent(el) {
                 if (!ScrollUtils) return null;
@@ -157,41 +146,44 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 return null;
             }
 
-            // Strategy 1: If first element is inside a scrollable container, scroll that first
+            // Collect content using incremental collection for SPA support
+            const allContents = [];
             const firstEl = elements[0];
+
+            // Check if selected element or its parent is scrollable
+            const isFirstElScrollable = ScrollUtils && ScrollUtils.isScrollable(firstEl).isScrollableY;
             const scrollableParent = findScrollableParent(firstEl);
 
-            if (scrollableParent) {
-                console.log(`[ElementPicker] Found scrollable parent container: ${scrollableParent.tagName}.${scrollableParent.className?.split(' ')[0] || ''}`);
-                await ScrollUtils.scrollElement(scrollableParent, { interval, maxTime });
-            }
+            if (isFirstElScrollable && ScrollUtils) {
+                // Selected element itself is scrollable - use incremental collection
+                console.log(`[ElementPicker] Selected element is scrollable, using incremental collection`);
+                const content = await ScrollUtils.scrollAndCollectContent(firstEl, { interval, maxTime });
+                if (content) allContents.push(content);
+            } else if (scrollableParent && ScrollUtils) {
+                // Parent container is scrollable - use incremental collection on parent
+                console.log(`[ElementPicker] Found scrollable parent: ${scrollableParent.tagName}.${scrollableParent.className?.split(' ')[0] || ''}`);
+                const content = await ScrollUtils.scrollAndCollectContent(scrollableParent, { interval, maxTime });
+                if (content) allContents.push(content);
+            } else {
+                // No scrollable container - just get static content from each element
+                console.log(`[ElementPicker] No scrollable container, getting static content`);
+                for (const el of elements) {
+                    let text = el.innerText || "";
 
-            // Strategy 2: For each selected element, if it has internal scroll, scroll it
-            for (const el of elements) {
-                if (ScrollUtils && ScrollUtils.isScrollable(el).isScrollableY) {
-                    await scrollElement(el);
-                }
-            }
+                    // Smart content cleaning for forum/SPA pages
+                    text = text
+                        .split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.length > 0)
+                        .join('\n')
+                        .replace(/\n{3,}/g, '\n\n')
+                        .replace(/[ \t]{2,}/g, ' ')
+                        .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
+                        .trim();
 
-            // Collect content from all elements
-            const allContents = [];
-
-            for (const el of elements) {
-                let text = el.innerText || "";
-
-                // Smart content cleaning for forum/SPA pages
-                text = text
-                    .split('\n')
-                    .map(line => line.trim())
-                    .filter(line => line.length > 0)
-                    .join('\n')
-                    .replace(/\n{3,}/g, '\n\n')
-                    .replace(/[ \t]{2,}/g, ' ')
-                    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
-                    .trim();
-
-                if (text) {
-                    allContents.push(text);
+                    if (text) {
+                        allContents.push(text);
+                    }
                 }
             }
 
@@ -222,14 +214,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Get Full Page Content (Cleaned Text)
     if (request.action === "GET_PAGE_CONTENT") {
         (async () => {
+            const startTime = Date.now();
+            const log = (msg) => {
+                console.log(msg);
+                // Also send to background for easier debugging
+                try {
+                    chrome.runtime.sendMessage({ action: "DEBUG_LOG", message: msg });
+                } catch (e) { /* ignore */ }
+            };
+
+            log(`[PageContent] 🚀 开始获取页面内容`);
+
             try {
                 // Use GeminiScrollUtils for smart scroll container detection
                 const ScrollUtils = window.GeminiScrollUtils;
 
                 if (!ScrollUtils) {
-                    console.warn("[PageContent] GeminiScrollUtils not loaded, using fallback");
+                    log(`[PageContent] ⚠️ GeminiScrollUtils 未加载，使用 fallback`);
                     let text = document.body.innerText || "";
-                    // Smart content cleaning
                     text = text
                         .split('\n')
                         .map(line => line.trim())
@@ -239,6 +241,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         .replace(/[ \t]{2,}/g, ' ')
                         .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
                         .trim();
+                    log(`[PageContent] 📊 获取 ${text.length} 字符（无滚动）`);
                     sendResponse({ content: text });
                     return;
                 }
@@ -246,45 +249,45 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 // 1. Smart find the main scrollable container
                 const scrollTarget = ScrollUtils.findScrollableContainer();
 
+                let text = '';
+
                 if (scrollTarget) {
                     const scrollInfo = ScrollUtils.isScrollable(scrollTarget);
-                    console.log(`[PageContent] Found scrollable container:`, {
-                        tag: scrollTarget.tagName,
-                        className: scrollTarget.className?.split(' ')[0] || '',
-                        scrollHeight: scrollInfo.scrollHeight,
-                        clientHeight: scrollInfo.clientHeight
-                    });
+                    log(`[PageContent] 📦 找到可滚动容器: ${scrollTarget.tagName}.${scrollTarget.className?.split(' ')[0] || ''}`);
+                    log(`[PageContent] 📏 scrollHeight=${scrollInfo.scrollHeight}px, clientHeight=${scrollInfo.clientHeight}px, needScroll=${scrollInfo.scrollHeight - scrollInfo.clientHeight}px`);
 
                     // 2. Load scroll settings
                     const settings = await chrome.storage.local.get(['geminiAutoScrollInterval', 'geminiAutoScrollMaxTime']);
                     const interval = parseInt(settings.geminiAutoScrollInterval) || 200;
                     const maxTime = parseInt(settings.geminiAutoScrollMaxTime) || 15000;
 
-                    // 3. Scroll the detected container
-                    await ScrollUtils.scrollElement(scrollTarget, { interval, maxTime });
+                    log(`[PageContent] ⚙️ 滚动设置: interval=${interval}ms, maxTime=${maxTime}ms`);
+                    log(`[PageContent] 🔄 开始增量收集内容...`);
+
+                    // 3. Use scrollAndCollectContent for SPA/virtual scroll support
+                    text = await ScrollUtils.scrollAndCollectContent(scrollTarget, { interval, maxTime });
+
+                    log(`[PageContent] ✅ 增量收集完成`);
                 } else {
-                    console.log("[PageContent] No scrollable container found, skipping scroll");
+                    log(`[PageContent] ⚠️ 未找到可滚动容器，直接获取页面内容`);
+                    // Fallback: get content from document body
+                    text = document.body.innerText || "";
+                    text = text
+                        .split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.length > 0)
+                        .join('\n')
+                        .replace(/\n{3,}/g, '\n\n')
+                        .replace(/[ \t]{2,}/g, ' ')
+                        .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
+                        .trim();
                 }
 
-                // 4. Get content from the scroll target or document body with intelligent cleaning
-                const contentSource = scrollTarget || document.body;
-                let text = contentSource.innerText || "";
-
-                // Smart content cleaning for forum/SPA pages
-                text = text
-                    .split('\n')
-                    .map(line => line.trim())
-                    .filter(line => line.length > 0)
-                    .join('\n')
-                    .replace(/\n{3,}/g, '\n\n')
-                    .replace(/[ \t]{2,}/g, ' ')
-                    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
-                    .trim();
-
-                console.log(`[PageContent] Captured ${text.length} characters (cleaned) from ${contentSource.tagName}`);
+                const elapsed = Date.now() - startTime;
+                log(`[PageContent] 📊 获取 ${text.length} 字符，总耗时 ${elapsed}ms`);
                 sendResponse({ content: text });
             } catch (e) {
-                console.error("Content capture failed", e);
+                log(`[PageContent] ❌ 内容获取失败: ${e.message}`);
                 sendResponse({ content: "", error: e.message });
             }
         })();

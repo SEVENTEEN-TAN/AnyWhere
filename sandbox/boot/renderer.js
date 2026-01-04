@@ -23,10 +23,10 @@ export function initRendererMode() {
                 // Process KaTeX if available
                 if (typeof katex !== 'undefined') {
                     html = html.replace(/\$\$([\s\S]+?)\$\$/g, (m, c) => {
-                        try { return katex.renderToString(c, { displayMode: true, throwOnError: false }); } catch(err){ return m; }
+                        try { return katex.renderToString(c, { displayMode: true, throwOnError: false, strict: false }); } catch(err){ return m; }
                     });
                     html = html.replace(/(?<!\$)\$(?!\$)([^$\n]+?)(?<!\$)\$/g, (m, c) => {
-                         try { return katex.renderToString(c, { displayMode: false, throwOnError: false }); } catch(err){ return m; }
+                         try { return katex.renderToString(c, { displayMode: false, throwOnError: false, strict: false }); } catch(err){ return m; }
                     });
                 }
 

@@ -35,6 +35,14 @@ export function setupMessageListener(sessionManager, imageHandler, controlManage
             return true;
         }
 
+        // --- DEBUG LOG (from content script) ---
+        if (request.action === 'DEBUG_LOG') {
+            console.log(`[Content→BG] ${request.message}`);
+            // Also forward to sidepanel for easier debugging
+            chrome.runtime.sendMessage({ action: 'DEBUG_LOG', message: request.message }).catch(() => {});
+            return false;
+        }
+
         // Open a tab in background (without switching focus)
         if (request.action === 'OPEN_TAB_BACKGROUND') {
             chrome.tabs.create({ url: request.url, active: false });

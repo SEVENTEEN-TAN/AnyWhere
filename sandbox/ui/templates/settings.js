@@ -53,29 +53,29 @@ export const SettingsTemplate = `
                 </div>
 
                 <div class="setting-group">
-                    <h4>Auto-Scroll Settings</h4>
-                    <p class="setting-desc" style="margin-bottom: 12px;">Configure behavior when summarizing full pages. Press ESC to cancel scrolling.</p>
+                    <h4 data-i18n="autoScrollSettings">Auto-Scroll Settings</h4>
+                    <p class="setting-desc" style="margin-bottom: 12px;" data-i18n="autoScrollSettingsDesc">Configure behavior when summarizing full pages. Press ESC to cancel scrolling.</p>
 
                     <div class="shortcut-row">
                         <div style="flex: 1;">
-                            <label style="font-weight: 500; display: block; margin-bottom: 2px;">Scroll Interval (ms)</label>
-                            <span class="setting-desc">Time between scrolls. Default: 200ms</span>
+                            <label data-i18n="scrollInterval" style="font-weight: 500; display: block; margin-bottom: 2px;">Scroll Interval (ms)</label>
+                            <span class="setting-desc" data-i18n="scrollIntervalDesc">Time between scrolls. Default: 200ms</span>
                         </div>
                         <input type="number" id="scroll-interval" class="shortcut-input" placeholder="200" style="width: 80px;">
                     </div>
 
                     <div class="shortcut-row">
                         <div style="flex: 1;">
-                            <label style="font-weight: 500; display: block; margin-bottom: 2px;">Max Duration (ms)</label>
-                            <span class="setting-desc">Max scroll time. Default: 15000ms (15s)</span>
+                            <label data-i18n="scrollMaxDuration" style="font-weight: 500; display: block; margin-bottom: 2px;">Max Duration (ms)</label>
+                            <span class="setting-desc" data-i18n="scrollMaxDurationDesc">Max scroll time. Default: 15000ms (15s)</span>
                         </div>
                         <input type="number" id="scroll-max-time" class="shortcut-input" placeholder="15000" style="width: 80px;">
                     </div>
 
                     <div class="shortcut-row">
                         <div style="flex: 1;">
-                            <label style="font-weight: 500; display: block; margin-bottom: 2px;">Max Context Length (chars)</label>
-                            <span class="setting-desc">0 = unlimited. Truncates if exceeded. Default: 500000</span>
+                            <label data-i18n="contextLimit" style="font-weight: 500; display: block; margin-bottom: 2px;">Max Context Length (chars)</label>
+                            <span class="setting-desc" data-i18n="contextLimitDesc">0 = unlimited. Truncates if exceeded. Default: 500000</span>
                         </div>
                         <input type="number" id="context-limit" class="shortcut-input" placeholder="500000" style="width: 100px;">
                     </div>
@@ -83,15 +83,15 @@ export const SettingsTemplate = `
 
                 <div class="setting-group">
                     <h4 style="display:flex; align-items:center; gap:6px;">
-                        <span>Model Context Protocol (MCP)</span>
+                        <span data-i18n="mcpTitle">Model Context Protocol (MCP)</span>
                         <span class="badge" style="background:#4caf50; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px;">BETA</span>
                     </h4>
-                    <p class="setting-desc" style="margin-bottom: 8px;">Connect external tools via JSON configuration.</p>
-                    
+                    <p class="setting-desc" style="margin-bottom: 8px;" data-i18n="mcpDesc">Connect external tools via JSON configuration.</p>
+
                     <textarea id="mcp-config-json" class="shortcut-input" style="width: 100%; height: 120px; font-family: monospace; font-size: 12px; resize: vertical;" placeholder='{"mcpServers": {"demo": {"endpoint": "http://localhost:3000/sse"}}}'></textarea>
-                    
+
                     <div class="settings-actions" style="margin-top: 8px;">
-                        <button id="save-mcp-config" class="btn-primary" style="width: 100%;">Save MCP Config</button>
+                        <button id="save-mcp-config" class="btn-primary" style="width: 100%;" data-i18n="saveMcpConfig">Save MCP Config</button>
                     </div>
                 </div>
 
@@ -147,22 +147,22 @@ export const SettingsTemplate = `
 
                 <div class="setting-group">
                     <h4 data-i18n="system">System</h4>
-                    
+
                     <div class="shortcut-row" style="margin-bottom: 16px;">
                         <div style="flex: 1;">
-                            <label style="font-weight: 500; display: block; margin-bottom: 4px;">AI Workspace Path</label>
-                            <span class="setting-desc">Choose where AI saves files. Leave empty for default Downloads/gemini-workspace</span>
+                            <label data-i18n="workspacePath" style="font-weight: 500; display: block; margin-bottom: 4px;">AI Workspace Path</label>
+                            <span class="setting-desc" data-i18n="workspacePathDesc">Choose where AI saves files. Leave empty for default Downloads/gemini-workspace</span>
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                        <input type="text" id="workspace-path" class="shortcut-input" placeholder="e.g., MyProjects/AI-Data" style="flex: 1;">
-                        <button id="clear-workspace-path" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;">Reset</button>
+                        <input type="text" id="workspace-path" class="shortcut-input" data-i18n-placeholder="workspacePathPlaceholder" placeholder="e.g., MyProjects/AI-Data" style="flex: 1;">
+                        <button id="clear-workspace-path" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" data-i18n="reset">Reset</button>
                     </div>
-                    
+
                     <div class="shortcut-row" style="margin-bottom: 16px;">
                         <div style="flex: 1;">
-                            <label style="font-weight: 500; display: block; margin-bottom: 2px;">Prompt for Save Location</label>
-                            <span class="setting-desc">Ask where to save each file (recommended for important files)</span>
+                            <label data-i18n="workspacePrompt" style="font-weight: 500; display: block; margin-bottom: 2px;">Prompt for Save Location</label>
+                            <span class="setting-desc" data-i18n="workspacePromptDesc">Ask where to save each file (recommended for important files)</span>
                         </div>
                         <input type="checkbox" id="workspace-prompt-toggle" style="width: 20px; height: 20px; cursor: pointer;">
                     </div>

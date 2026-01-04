@@ -159,15 +159,152 @@
     }
 
     /**
-     * Scroll an element to the bottom, triggering lazy loads
+     * Generate a fingerprint for content deduplication
+     * @param {string} text - The text content
+     * @returns {string} - A fingerprint string
+     */
+    function generateFingerprint(text) {
+        if (!text || text.length === 0) return '';
+        // Use first 100 chars + length as fingerprint
+        const prefix = text.slice(0, 100).trim();
+        return `${prefix.length}:${text.length}:${prefix}`;
+    }
+
+    /**
+     * Find content blocks within a container
+     * Automatically detects common content block patterns
+     * @param {Element} container - The container element
+     * @returns {Element[]} - Array of content block elements
+     */
+    function findContentBlocks(container) {
+        // Common content block selectors for forums, blogs, SPAs
+        const contentSelectors = [
+            // Forum/Discussion patterns
+            '.topic-post', '.post', '.post-content', '.post-body',
+            '.comment', '.comment-body', '.reply', '.reply-content',
+            '.message', '.message-body', '.message-content',
+            // Article patterns
+            'article', '.article', '.article-content',
+            '.entry', '.entry-content',
+            // Generic content patterns
+            '.content-block', '.text-block', '.item',
+            // Fallback to direct children with substantial text
+            ':scope > div', ':scope > section', ':scope > p'
+        ];
+
+        let blocks = [];
+
+        // Try each selector
+        for (const selector of contentSelectors) {
+            try {
+                const found = container.querySelectorAll(selector);
+                if (found.length > 0) {
+                    // Filter to only include blocks with meaningful text content
+                    const meaningful = Array.from(found).filter(el => {
+                        const text = el.innerText?.trim() || '';
+                        return text.length > 50; // At least 50 chars
+                    });
+                    if (meaningful.length > 0) {
+                        blocks = meaningful;
+                        break;
+                    }
+                }
+            } catch (e) {
+                // Invalid selector, skip
+            }
+        }
+
+        // Fallback: if no blocks found, use visible text nodes
+        if (blocks.length === 0) {
+            // Get all elements with direct text content
+            const allDivs = container.querySelectorAll('div, p, section, article, li');
+            blocks = Array.from(allDivs).filter(el => {
+                const text = el.innerText?.trim() || '';
+                // Must have meaningful content and be visible
+                const rect = el.getBoundingClientRect();
+                return text.length > 50 && rect.height > 0 && rect.width > 0;
+            });
+        }
+
+        return blocks;
+    }
+
+    /**
+     * Collect visible content from the current viewport
+     * @param {Element} container - The scroll container
+     * @param {Set} seenFingerprints - Set of already collected fingerprints
+     * @param {boolean} isDocumentScroll - Whether scrolling the document
+     * @returns {Object} - { newTexts: string[], newCount: number }
+     */
+    function collectVisibleContent(container, seenFingerprints, isDocumentScroll) {
+        const newTexts = [];
+
+        // Get viewport bounds
+        const viewportTop = isDocumentScroll ? window.scrollY : container.scrollTop;
+        const viewportHeight = isDocumentScroll ? window.innerHeight : container.clientHeight;
+        const viewportBottom = viewportTop + viewportHeight;
+
+        // Find content blocks
+        const blocks = findContentBlocks(container);
+
+        for (const block of blocks) {
+            // Check if block is in viewport (approximately)
+            const rect = block.getBoundingClientRect();
+            const blockTop = isDocumentScroll ? rect.top + window.scrollY : rect.top - container.getBoundingClientRect().top + container.scrollTop;
+            const blockBottom = blockTop + rect.height;
+
+            // Block should be at least partially visible
+            const isVisible = blockBottom > viewportTop && blockTop < viewportBottom;
+
+            if (isVisible) {
+                let text = block.innerText?.trim() || '';
+                if (text.length < 20) continue; // Skip too short
+
+                // Clean up
+                text = text
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0)
+                    .join('\n')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .replace(/[ \t]{2,}/g, ' ')
+                    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '');
+
+                const fingerprint = generateFingerprint(text);
+
+                if (fingerprint && !seenFingerprints.has(fingerprint)) {
+                    seenFingerprints.add(fingerprint);
+                    newTexts.push(text);
+                }
+            }
+        }
+
+        return { newTexts, newCount: newTexts.length };
+    }
+
+    /**
+     * Scroll an element and incrementally collect content
+     * Designed for SPAs with virtual scrolling (Vue, React, etc.)
      * @param {Element} scrollTarget - The element to scroll
      * @param {Object} options - { interval, maxTime }
-     * @returns {Promise} - Resolves when scrolling is complete
+     * @returns {Promise<string>} - Collected content
      */
-    async function scrollElement(scrollTarget, options = {}) {
+    async function scrollAndCollectContent(scrollTarget, options = {}) {
         const interval = parseInt(options.interval) || 200;
         const maxTime = parseInt(options.maxTime) || 15000;
         const distance = 400;
+
+        // Content collection
+        const seenFingerprints = new Set();
+        const collectedTexts = [];
+
+        // Helper to log both locally and to background
+        const log = (msg) => {
+            console.log(msg);
+            try {
+                chrome.runtime.sendMessage({ action: "DEBUG_LOG", message: msg });
+            } catch (e) { /* ignore */ }
+        };
 
         const isDocumentScroll = (
             scrollTarget === document.scrollingElement ||
@@ -175,35 +312,50 @@
             scrollTarget === document.body
         );
 
-        console.log(`[ScrollUtils] Starting scroll - Target: ${isDocumentScroll ? 'document' : scrollTarget.tagName}, Interval: ${interval}ms, MaxTime: ${maxTime}ms`);
+        // Enhanced logging for debugging
+        log(`[ScrollCollect] 🚀 Starting Scroll & Collect`);
+        log(`[ScrollCollect] Target: ${isDocumentScroll ? 'document' : `${scrollTarget.tagName}.${scrollTarget.className?.split(' ')[0] || ''}`}`);
+        log(`[ScrollCollect] Settings: interval=${interval}ms, maxTime=${maxTime}ms, distance=${distance}px`);
 
         // Create indicator
         const indicator = createScrollIndicator();
+        indicator.textContent = '🔄 正在收集页面内容...';
         document.body.appendChild(indicator);
+
+        // Collect initial content before scrolling
+        const initialCollect = collectVisibleContent(scrollTarget, seenFingerprints, isDocumentScroll);
+        collectedTexts.push(...initialCollect.newTexts);
+        log(`[ScrollCollect] 📝 Initial collection: ${initialCollect.newCount} blocks`);
 
         return new Promise(resolve => {
             const startTime = Date.now();
             let lastScrollHeight = scrollTarget.scrollHeight;
             let bottomRetryCount = 0;
-            const maxBottomRetries = 3;
+            const maxBottomRetries = 5;
             let isAborted = false;
+            let scrollCount = 0;
+            let totalBlocksCollected = initialCollect.newCount;
 
             // ESC key handler
             const escHandler = (e) => {
                 if (e.key === 'Escape') {
-                    console.log('[ScrollUtils] User cancelled via ESC');
+                    log('[ScrollCollect] ❌ User cancelled via ESC');
                     isAborted = true;
-                    indicator.textContent = '❌ 已取消滚动';
+                    indicator.textContent = '❌ 已取消';
                     indicator.style.background = 'rgba(255, 59, 48, 0.95)';
                 }
             };
             document.addEventListener('keydown', escHandler);
 
             const timer = setInterval(() => {
+                scrollCount++;
+                const elapsed = Date.now() - startTime;
+
                 // Check abort or timeout
-                if (isAborted || (Date.now() - startTime > maxTime)) {
-                    console.log(`[ScrollUtils] Stopping - ${isAborted ? 'User aborted' : 'Timeout reached'}`);
-                    finish();
+                if (isAborted || elapsed > maxTime) {
+                    const reason = isAborted ? 'user_abort' : 'timeout';
+                    log(`[ScrollCollect] ⏹️ Stopping - ${reason}`);
+                    finish(reason);
                     return;
                 }
 
@@ -214,30 +366,39 @@
                     scrollTarget.scrollTop += distance;
                 }
 
+                // Small delay for DOM to update after scroll
+                setTimeout(() => {
+                    // Collect content after scroll
+                    const collected = collectVisibleContent(scrollTarget, seenFingerprints, isDocumentScroll);
+                    if (collected.newCount > 0) {
+                        collectedTexts.push(...collected.newTexts);
+                        totalBlocksCollected += collected.newCount;
+                        log(`[ScrollCollect] 📝 +${collected.newCount} blocks (total: ${totalBlocksCollected})`);
+                    }
+                }, 50);
+
                 // Calculate progress
                 const currentPos = isDocumentScroll
                     ? window.innerHeight + window.scrollY
                     : scrollTarget.scrollTop + scrollTarget.clientHeight;
                 const totalHeight = scrollTarget.scrollHeight;
                 const progress = Math.min(Math.round((currentPos / totalHeight) * 100), 100);
+                const remainingPx = totalHeight - currentPos;
 
-                indicator.textContent = `🔄 正在滚动... ${progress}%`;
+                indicator.textContent = `🔄 收集中... ${progress}% (${totalBlocksCollected} 块)`;
 
                 // Check if at bottom
-                if (currentPos >= totalHeight - 100) {
+                if (remainingPx < 100) {
                     if (scrollTarget.scrollHeight === lastScrollHeight) {
                         bottomRetryCount++;
-                        console.log(`[ScrollUtils] At bottom, waiting... (${bottomRetryCount}/${maxBottomRetries})`);
-
                         if (bottomRetryCount >= maxBottomRetries) {
-                            console.log('[ScrollUtils] ✅ Confirmed bottom - no new content');
-                            indicator.textContent = '✅ 滚动完成';
+                            log(`[ScrollCollect] ✅ Reached bottom`);
+                            indicator.textContent = '✅ 收集完成';
                             indicator.style.background = 'rgba(52, 199, 89, 0.95)';
-                            finish();
+                            finish('complete');
                             return;
                         }
                     } else {
-                        console.log(`[ScrollUtils] 🆕 New content - height: ${lastScrollHeight} → ${scrollTarget.scrollHeight}`);
                         bottomRetryCount = 0;
                     }
                 } else {
@@ -247,9 +408,26 @@
                 lastScrollHeight = scrollTarget.scrollHeight;
             }, interval);
 
-            function finish() {
+            function finish(reason = 'unknown') {
                 clearInterval(timer);
                 document.removeEventListener('keydown', escHandler);
+
+                // Final collection at current position
+                const finalCollect = collectVisibleContent(scrollTarget, seenFingerprints, isDocumentScroll);
+                if (finalCollect.newCount > 0) {
+                    collectedTexts.push(...finalCollect.newTexts);
+                    totalBlocksCollected += finalCollect.newCount;
+                }
+
+                log(`[ScrollCollect] 📊 Collection Summary`);
+                log(`[ScrollCollect]   Reason: ${reason}`);
+                log(`[ScrollCollect]   Total scrolls: ${scrollCount}`);
+                log(`[ScrollCollect]   Blocks collected: ${totalBlocksCollected}`);
+                log(`[ScrollCollect]   Duration: ${Date.now() - startTime}ms`);
+
+                // Combine all collected texts
+                const finalContent = collectedTexts.join('\n\n---\n\n');
+                log(`[ScrollCollect]   Final content length: ${finalContent.length} chars`);
 
                 setTimeout(() => {
                     // Return to top
@@ -258,7 +436,165 @@
                     } else {
                         scrollTarget.scrollTop = 0;
                     }
-                    console.log('[ScrollUtils] 🔝 Returned to top');
+                    log('[ScrollCollect] 🔝 Returned to top');
+
+                    // Remove indicator after delay
+                    setTimeout(() => {
+                        if (indicator && indicator.parentNode) {
+                            indicator.remove();
+                        }
+                    }, 1500);
+
+                    resolve(finalContent);
+                }, 500);
+            }
+        });
+    }
+
+    /**
+     * Scroll an element to the bottom, triggering lazy loads
+     * @param {Element} scrollTarget - The element to scroll
+     * @param {Object} options - { interval, maxTime }
+     * @returns {Promise} - Resolves when scrolling is complete
+     */
+    async function scrollElement(scrollTarget, options = {}) {
+        const interval = parseInt(options.interval) || 200;
+        const maxTime = parseInt(options.maxTime) || 15000;
+        const distance = 400;
+
+        // Helper to log both locally and to background
+        const log = (msg) => {
+            console.log(msg);
+            try {
+                chrome.runtime.sendMessage({ action: "DEBUG_LOG", message: msg });
+            } catch (e) { /* ignore */ }
+        };
+
+        const isDocumentScroll = (
+            scrollTarget === document.scrollingElement ||
+            scrollTarget === document.documentElement ||
+            scrollTarget === document.body
+        );
+
+        // Enhanced logging for debugging
+        log(`[ScrollUtils] 🚀 Starting Auto-Scroll`);
+        log(`[ScrollUtils] Target: ${isDocumentScroll ? 'document' : `${scrollTarget.tagName}.${scrollTarget.className?.split(' ')[0] || ''}`}`);
+        log(`[ScrollUtils] Settings: interval=${interval}ms, maxTime=${maxTime}ms, distance=${distance}px`);
+        log(`[ScrollUtils] Initial: scrollHeight=${scrollTarget.scrollHeight}px, clientHeight=${scrollTarget.clientHeight}px`);
+
+        // Create indicator
+        const indicator = createScrollIndicator();
+        document.body.appendChild(indicator);
+
+        return new Promise(resolve => {
+            const startTime = Date.now();
+            let lastScrollHeight = scrollTarget.scrollHeight;
+            let bottomRetryCount = 0;
+            const maxBottomRetries = 5; // Increased from 3 to 5 for better lazy-load detection
+            let isAborted = false;
+            let scrollCount = 0;
+
+            // ESC key handler
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    log('[ScrollUtils] ❌ User cancelled via ESC');
+                    isAborted = true;
+                    indicator.textContent = '❌ 已取消滚动';
+                    indicator.style.background = 'rgba(255, 59, 48, 0.95)';
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+
+            const timer = setInterval(() => {
+                scrollCount++;
+                const elapsed = Date.now() - startTime;
+
+                // Check abort or timeout
+                if (isAborted || elapsed > maxTime) {
+                    const reason = isAborted ? 'user_abort' : 'timeout';
+                    log(`[ScrollUtils] ⏹️ Stopping - ${isAborted ? 'User aborted (ESC)' : `Timeout (${elapsed}ms > ${maxTime}ms)`}`);
+                    log(`[ScrollUtils] Total scrolls: ${scrollCount}, Final height: ${scrollTarget.scrollHeight}px`);
+                    finish(reason);
+                    return;
+                }
+
+                // Get position BEFORE scroll
+                const preScrollPos = isDocumentScroll
+                    ? window.innerHeight + window.scrollY
+                    : scrollTarget.scrollTop + scrollTarget.clientHeight;
+                const preScrollHeight = scrollTarget.scrollHeight;
+
+                // Execute scroll
+                if (isDocumentScroll) {
+                    window.scrollBy(0, distance);
+                } else {
+                    scrollTarget.scrollTop += distance;
+                }
+
+                // Calculate progress AFTER scroll
+                const currentPos = isDocumentScroll
+                    ? window.innerHeight + window.scrollY
+                    : scrollTarget.scrollTop + scrollTarget.clientHeight;
+                const totalHeight = scrollTarget.scrollHeight;
+                const progress = Math.min(Math.round((currentPos / totalHeight) * 100), 100);
+                const remainingPx = totalHeight - currentPos;
+
+                indicator.textContent = `🔄 正在滚动... ${progress}%`;
+
+                // Detailed logging every 5 scrolls or when near bottom
+                const isNearBottom = remainingPx < 500;
+                if (scrollCount % 5 === 0 || isNearBottom) {
+                    log(`[ScrollUtils] #${scrollCount} | pos: ${Math.round(currentPos)}/${totalHeight}px | remaining: ${Math.round(remainingPx)}px | progress: ${progress}% | elapsed: ${elapsed}ms`);
+                }
+
+                // Check if at bottom (remaining < 100px)
+                if (remainingPx < 100) {
+                    // Check if height changed since last interval
+                    if (scrollTarget.scrollHeight === lastScrollHeight) {
+                        bottomRetryCount++;
+                        log(`[ScrollUtils] 🔻 Bottom detected - retry ${bottomRetryCount}/${maxBottomRetries} | height stable at ${scrollTarget.scrollHeight}px`);
+
+                        if (bottomRetryCount >= maxBottomRetries) {
+                            log(`[ScrollUtils] ✅ Confirmed bottom - no new content after ${maxBottomRetries} retries`);
+                            log(`[ScrollUtils] Total scrolls: ${scrollCount}, Final height: ${scrollTarget.scrollHeight}px, Time: ${elapsed}ms`);
+                            indicator.textContent = '✅ 滚动完成';
+                            indicator.style.background = 'rgba(52, 199, 89, 0.95)';
+                            finish('complete');
+                            return;
+                        }
+                    } else {
+                        log(`[ScrollUtils] 🆕 New content loaded! | height: ${lastScrollHeight} → ${scrollTarget.scrollHeight}px (+${scrollTarget.scrollHeight - lastScrollHeight}px)`);
+                        bottomRetryCount = 0;
+                    }
+                } else {
+                    // Reset retry count when not at bottom
+                    if (bottomRetryCount > 0) {
+                        log(`[ScrollUtils] ↗️ Not at bottom anymore, reset retry count`);
+                    }
+                    bottomRetryCount = 0;
+                }
+
+                lastScrollHeight = scrollTarget.scrollHeight;
+            }, interval);
+
+            function finish(reason = 'unknown') {
+                clearInterval(timer);
+                document.removeEventListener('keydown', escHandler);
+
+                log(`[ScrollUtils] 📊 Scroll Summary`);
+                log(`[ScrollUtils]   Reason: ${reason}`);
+                log(`[ScrollUtils]   Total scrolls: ${scrollCount}`);
+                log(`[ScrollUtils]   Duration: ${Date.now() - startTime}ms`);
+                log(`[ScrollUtils]   Final scrollHeight: ${scrollTarget.scrollHeight}px`);
+
+                setTimeout(() => {
+                    // Return to top
+                    if (isDocumentScroll) {
+                        window.scrollTo(0, 0);
+                    } else {
+                        scrollTarget.scrollTop = 0;
+                    }
+                    log('[ScrollUtils] 🔝 Returned to top');
 
                     // Remove indicator after delay
                     setTimeout(() => {
@@ -304,7 +640,12 @@
         findScrollableContainer,
         createScrollIndicator,
         scrollElement,
-        getElementContent
+        scrollAndCollectContent,
+        getElementContent,
+        // Helper functions for advanced usage
+        generateFingerprint,
+        findContentBlocks,
+        collectVisibleContent
     };
 
 })();

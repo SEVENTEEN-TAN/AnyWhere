@@ -21,7 +21,8 @@ export function renderContent(contentDiv, text, role) {
                     { left: '\\(', right: '\\)', display: false },
                     { left: '\\[', right: '\\]', display: true }
                 ],
-                throwOnError: false
+                throwOnError: false,
+                strict: false  // Suppress warnings for Unicode text in math mode (e.g., Chinese chars)
             });
         }
     } else {

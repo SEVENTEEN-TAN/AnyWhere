@@ -484,6 +484,12 @@ window.addEventListener('message', (event) => {
 
 // Forward messages from Background to Sandbox
 chrome.runtime.onMessage.addListener((message) => {
+    // Display DEBUG_LOG in sidepanel console for easier debugging
+    if (message.action === 'DEBUG_LOG') {
+        console.log(`%c${message.message}`, 'color: #ff9800');
+        return;
+    }
+
     if (message.action === 'SESSIONS_UPDATED') {
         if (preFetchedData) preFetchedData.geminiSessions = message.sessions;
         if (iframe.contentWindow) {

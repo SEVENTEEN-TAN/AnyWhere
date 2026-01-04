@@ -93,7 +93,30 @@ export const translations = {
         "close": "Close",
         "sendMessageTooltip": "Send message",
         "openFullPageTooltip": "Open in full page",
-        "modelSelectTooltip": "Select Model (Tab to cycle)"
+        "modelSelectTooltip": "Select Model (Tab to cycle)",
+
+        // Auto-Scroll Settings
+        "autoScrollSettings": "Auto-Scroll Settings",
+        "autoScrollSettingsDesc": "Configure behavior when summarizing full pages. Press ESC to cancel scrolling.",
+        "scrollInterval": "Scroll Interval (ms)",
+        "scrollIntervalDesc": "Time between scrolls. Default: 200ms",
+        "scrollMaxDuration": "Max Duration (ms)",
+        "scrollMaxDurationDesc": "Max scroll time. Default: 15000ms (15s)",
+        "contextLimit": "Max Context Length (chars)",
+        "contextLimitDesc": "0 = unlimited. Truncates if exceeded. Default: 500000",
+
+        // MCP Settings
+        "mcpTitle": "Model Context Protocol (MCP)",
+        "mcpDesc": "Connect external tools via JSON configuration.",
+        "saveMcpConfig": "Save MCP Config",
+
+        // Workspace Settings
+        "workspacePath": "AI Workspace Path",
+        "workspacePathDesc": "Choose where AI saves files. Leave empty for default Downloads/gemini-workspace",
+        "workspacePathPlaceholder": "e.g., MyProjects/AI-Data",
+        "workspacePrompt": "Prompt for Save Location",
+        "workspacePromptDesc": "Ask where to save each file (recommended for important files)",
+        "reset": "Reset"
     },
     zh: {
         "searchPlaceholder": "搜索对话",
@@ -185,7 +208,30 @@ export const translations = {
         "close": "关闭",
         "sendMessageTooltip": "发送消息",
         "openFullPageTooltip": "新标签页打开",
-        "modelSelectTooltip": "选择模型 (按 Tab 切换)"
+        "modelSelectTooltip": "选择模型 (按 Tab 切换)",
+
+        // Auto-Scroll Settings
+        "autoScrollSettings": "自动滚动设置",
+        "autoScrollSettingsDesc": "配置总结整个页面时的滚动行为。按 ESC 可取消滚动。",
+        "scrollInterval": "滚动间隔 (毫秒)",
+        "scrollIntervalDesc": "每次滚动之间的时间间隔。默认：200ms",
+        "scrollMaxDuration": "最大时长 (毫秒)",
+        "scrollMaxDurationDesc": "滚动的最大持续时间。默认：15000ms (15秒)",
+        "contextLimit": "最大上下文长度 (字符)",
+        "contextLimitDesc": "0 = 不限制。超过时会截断。默认：500000",
+
+        // MCP Settings
+        "mcpTitle": "模型上下文协议 (MCP)",
+        "mcpDesc": "通过 JSON 配置连接外部工具。",
+        "saveMcpConfig": "保存 MCP 配置",
+
+        // Workspace Settings
+        "workspacePath": "AI 工作区路径",
+        "workspacePathDesc": "选择 AI 保存文件的位置。留空则使用默认的 Downloads/gemini-workspace",
+        "workspacePathPlaceholder": "例如：MyProjects/AI-Data",
+        "workspacePrompt": "保存位置提示",
+        "workspacePromptDesc": "每次保存文件时询问位置（适合重要文件）",
+        "reset": "重置"
     }
 };
 
