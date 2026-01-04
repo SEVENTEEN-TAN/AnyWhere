@@ -211,86 +211,129 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
-    // Get Full Page Content (Cleaned Text)
+    // Get Full Page Content (with Element Picker for user selection)
     if (request.action === "GET_PAGE_CONTENT") {
-        (async () => {
-            const startTime = Date.now();
-            const log = (msg) => {
-                console.log(msg);
-                // Also send to background for easier debugging
-                try {
-                    chrome.runtime.sendMessage({ action: "DEBUG_LOG", message: msg });
-                } catch (e) { /* ignore */ }
-            };
-
-            log(`[PageContent] 🚀 开始获取页面内容`);
-
+        const log = (msg) => {
+            console.log(msg);
             try {
-                // Use GeminiScrollUtils for smart scroll container detection
-                const ScrollUtils = window.GeminiScrollUtils;
+                chrome.runtime.sendMessage({ action: "DEBUG_LOG", message: msg });
+            } catch (e) { /* ignore */ }
+        };
 
-                if (!ScrollUtils) {
-                    log(`[PageContent] ⚠️ GeminiScrollUtils 未加载，使用 fallback`);
-                    let text = document.body.innerText || "";
-                    text = text
-                        .split('\n')
-                        .map(line => line.trim())
-                        .filter(line => line.length > 0)
-                        .join('\n')
-                        .replace(/\n{3,}/g, '\n\n')
-                        .replace(/[ \t]{2,}/g, ' ')
-                        .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
-                        .trim();
-                    log(`[PageContent] 📊 获取 ${text.length} 字符（无滚动）`);
-                    sendResponse({ content: text });
-                    return;
-                }
+        log(`[PageContent] 🚀 启动元素选择器`);
 
-                // 1. Smart find the main scrollable container
-                const scrollTarget = ScrollUtils.findScrollableContainer();
+        // Start element picker to let user choose the content area
+        const picker = window.GeminiElementPicker;
 
-                let text = '';
-
-                if (scrollTarget) {
-                    const scrollInfo = ScrollUtils.isScrollable(scrollTarget);
-                    log(`[PageContent] 📦 找到可滚动容器: ${scrollTarget.tagName}.${scrollTarget.className?.split(' ')[0] || ''}`);
-                    log(`[PageContent] 📏 scrollHeight=${scrollInfo.scrollHeight}px, clientHeight=${scrollInfo.clientHeight}px, needScroll=${scrollInfo.scrollHeight - scrollInfo.clientHeight}px`);
-
-                    // 2. Load scroll settings
-                    const settings = await chrome.storage.local.get(['geminiAutoScrollInterval', 'geminiAutoScrollMaxTime']);
-                    const interval = parseInt(settings.geminiAutoScrollInterval) || 200;
-                    const maxTime = parseInt(settings.geminiAutoScrollMaxTime) || 15000;
-
-                    log(`[PageContent] ⚙️ 滚动设置: interval=${interval}ms, maxTime=${maxTime}ms`);
-                    log(`[PageContent] 🔄 开始增量收集内容...`);
-
-                    // 3. Use scrollAndCollectContent for SPA/virtual scroll support
-                    text = await ScrollUtils.scrollAndCollectContent(scrollTarget, { interval, maxTime });
-
-                    log(`[PageContent] ✅ 增量收集完成`);
-                } else {
-                    log(`[PageContent] ⚠️ 未找到可滚动容器，直接获取页面内容`);
-                    // Fallback: get content from document body
-                    text = document.body.innerText || "";
-                    text = text
-                        .split('\n')
-                        .map(line => line.trim())
-                        .filter(line => line.length > 0)
-                        .join('\n')
-                        .replace(/\n{3,}/g, '\n\n')
-                        .replace(/[ \t]{2,}/g, ' ')
-                        .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
-                        .trim();
-                }
-
-                const elapsed = Date.now() - startTime;
-                log(`[PageContent] 📊 获取 ${text.length} 字符，总耗时 ${elapsed}ms`);
+        if (!picker) {
+            log(`[PageContent] ❌ 元素选择器未加载，使用 fallback`);
+            // Fallback: get entire page content
+            (async () => {
+                let text = document.body.innerText || "";
+                text = text
+                    .replace(/[ \t]{2,}/g, ' ')
+                    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
+                    .split('\n')
+                    .map(line => line.trim())
+                    .join('\n')
+                    .replace(/\n{4,}/g, '\n\n\n')
+                    .trim();
+                log(`[PageContent] 📊 获取 ${text.length} 字符（fallback）`);
                 sendResponse({ content: text });
-            } catch (e) {
-                log(`[PageContent] ❌ 内容获取失败: ${e.message}`);
-                sendResponse({ content: "", error: e.message });
+            })();
+            return true;
+        }
+
+        // Use element picker for user selection
+        picker.start(async (result) => {
+            if (!result) {
+                log('[PageContent] ❌ 用户取消选择');
+                sendResponse({ content: "", cancelled: true });
+                return;
             }
-        })();
+
+            const startTime = Date.now();
+            const ScrollUtils = window.GeminiScrollUtils;
+            const elements = result.elements || [result.element];
+
+            log(`[PageContent] ✅ 用户选择了 ${elements.length} 个元素`);
+
+            // Load scroll settings
+            let interval = 200;
+            let maxTime = 15000;
+            try {
+                const settings = await chrome.storage.local.get(['geminiAutoScrollInterval', 'geminiAutoScrollMaxTime']);
+                interval = parseInt(settings.geminiAutoScrollInterval) || 200;
+                maxTime = parseInt(settings.geminiAutoScrollMaxTime) || 15000;
+            } catch (e) {
+                log('[PageContent] ⚠️ 无法加载滚动设置，使用默认值');
+            }
+
+            // Helper: find scrollable parent
+            function findScrollableParent(el) {
+                if (!ScrollUtils) return null;
+                let parent = el.parentElement;
+                while (parent && parent !== document.body) {
+                    if (ScrollUtils.isScrollable(parent).isScrollableY) {
+                        return parent;
+                    }
+                    parent = parent.parentElement;
+                }
+                return null;
+            }
+
+            // Collect content
+            const allContents = [];
+            const firstEl = elements[0];
+
+            // Check if selected element or its parent is scrollable
+            const isFirstElScrollable = ScrollUtils && ScrollUtils.isScrollable(firstEl).isScrollableY;
+            const scrollableParent = findScrollableParent(firstEl);
+
+            if (isFirstElScrollable && ScrollUtils && ScrollUtils.scrollAndCollectContent) {
+                log(`[PageContent] 📦 选中元素可滚动，使用增量收集`);
+                try {
+                    const content = await ScrollUtils.scrollAndCollectContent(firstEl, { interval, maxTime });
+                    if (content) allContents.push(content);
+                } catch (e) {
+                    log(`[PageContent] ❌ 增量收集失败: ${e.message}`);
+                }
+            } else if (scrollableParent && ScrollUtils && ScrollUtils.scrollAndCollectContent) {
+                log(`[PageContent] 📦 找到可滚动父容器: ${scrollableParent.tagName}`);
+                try {
+                    const content = await ScrollUtils.scrollAndCollectContent(scrollableParent, { interval, maxTime });
+                    if (content) allContents.push(content);
+                } catch (e) {
+                    log(`[PageContent] ❌ 增量收集失败: ${e.message}`);
+                }
+            } else {
+                log(`[PageContent] 📄 无可滚动容器，直接获取静态内容`);
+                for (const el of elements) {
+                    let text = el.innerText || '';
+                    text = text
+                        .replace(/[ \t]{2,}/g, ' ')
+                        .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
+                        .split('\n')
+                        .map(line => line.trim())
+                        .join('\n')
+                        .replace(/\n{4,}/g, '\n\n\n')
+                        .trim();
+
+                    if (text) allContents.push(text);
+                }
+            }
+
+            const finalContent = allContents.length > 1
+                ? allContents.join('\n\n---\n\n')
+                : allContents[0] || '';
+
+            const elapsed = Date.now() - startTime;
+            log(`[PageContent] 📊 获取 ${finalContent.length} 字符，总耗时 ${elapsed}ms`);
+
+            sendResponse({ content: finalContent });
+        });
+
+        // Return true to indicate async response (don't call sendResponse here)
         return true; // Async response
     }
 });
