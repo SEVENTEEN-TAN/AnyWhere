@@ -156,6 +156,16 @@ window.addEventListener('message', (event) => {
         return;
     }
 
+    // --- Open URL in New Tab (From Sandbox Links) ---
+    if (action === 'OPEN_URL') {
+        // Handle direct url property (from events.js) or payload structure
+        const url = event.data.url || (payload && (payload.url || payload)); 
+        if (url && typeof url === 'string') {
+            chrome.tabs.create({ url });
+        }
+        return;
+    }
+
     // --- Open Tab in Background (without switching focus) ---
     if (action === 'OPEN_TAB_BACKGROUND') {
         chrome.runtime.sendMessage({ action: 'OPEN_TAB_BACKGROUND', url: event.data.url });

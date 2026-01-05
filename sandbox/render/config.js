@@ -64,6 +64,20 @@ export function configureMarkdown() {
 </div>`;
     };
 
+    // Add explicit link renderer to ensure target="_blank"
+    renderer.link = function(href, title, text) {
+        // Handle token object in newer marked versions
+        if (typeof href === 'object' && href !== null) {
+            const token = href;
+            href = token.href;
+            title = token.title;
+            text = token.text;
+        }
+        
+        const titleAttr = title ? ` title="${title}"` : '';
+        return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
+    };
+
     const options = {
         breaks: true,
         gfm: true,
