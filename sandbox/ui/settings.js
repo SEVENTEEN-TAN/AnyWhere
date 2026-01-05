@@ -235,7 +235,7 @@ export class SettingsController {
         if (this.view.hasFetchedStars()) return;
 
         try {
-            const res = await fetch('https://api.github.com/repos/yeahhe365/gemini-nexus');
+            const res = await fetch('https://api.github.com/repos/SEVENTEEN-TAN/AnyWhere');
             if (res.ok) {
                 const data = await res.json();
                 this.view.displayStars(data.stargazers_count);

@@ -175,10 +175,10 @@ export const SettingsTemplate = `
 
                 <div class="setting-group">
                     <h4 data-i18n="about">About</h4>
-                    <p class="setting-info"><strong>Gemini Nexus</strong> v4.0.0</p>
+                    <p class="setting-info"><strong>AnyWhere</strong> v4.0.0</p>
                     
                     <div style="display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap;">
-                        <a href="https://github.com/yeahhe365/gemini-nexus" target="_blank" class="github-link" style="margin-top: 0;">
+                        <a href="https://github.com/SEVENTEEN-TAN/AnyWhere" target="_blank" class="github-link" style="margin-top: 0;">
                             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
                             <span data-i18n="sourceCode">Source Code</span>
                             <span id="star-count" class="star-badge"></span>
@@ -195,6 +195,10 @@ export const SettingsTemplate = `
                             <span data-i18n="buyMeCoffee">Buy Me a Coffee</span>
                         </a>
                     </div>
+                    
+                    <p style="margin-top: 12px; font-size: 0.85em; opacity: 0.7; line-height: 1.5;">
+                        基于 <a href="https://github.com/yeahhe365/gemini-nexus" target="_blank" style="color: inherit; text-decoration: underline;">Gemini Nexus</a> 开源提供支持
+                    </p>
                 </div>
             </div>
         </div>
