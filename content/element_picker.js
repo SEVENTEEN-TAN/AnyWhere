@@ -844,6 +844,12 @@
 
                     console.log(`[ElementPicker] Captured ${finalContent.length} chars from ${elements.length} elements`);
 
+                    // Log captured content for debugging
+                    chrome.runtime.sendMessage({
+                        action: 'DEBUG_LOG',
+                        message: `[ElementPicker] Captured Content Preview:\n${finalContent}`
+                    });
+
                     // Send result
                     chrome.runtime.sendMessage({
                         action: 'ELEMENT_PICKED',

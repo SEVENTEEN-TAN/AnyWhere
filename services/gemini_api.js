@@ -42,7 +42,7 @@ function getModelConfig(modelId) {
     if (dynamicModelConfigs && dynamicModelConfigs[modelId]) {
         return dynamicModelConfigs[modelId];
     }
-    
+
     // Fallback to default configs
     return DEFAULT_MODEL_CONFIGS[modelId] || DEFAULT_MODEL_CONFIGS['gemini-2.5-flash'];
 }
@@ -56,9 +56,9 @@ export function updateModelConfigs(models) {
         console.warn('[GeminiAPI] No models provided for config update');
         return;
     }
-    
+
     dynamicModelConfigs = {};
-    
+
     for (const model of models) {
         if (model.id && model.header) {
             dynamicModelConfigs[model.id] = {
@@ -67,7 +67,7 @@ export function updateModelConfigs(models) {
             };
         }
     }
-    
+
     console.log(`[GeminiAPI] Updated model configs for ${Object.keys(dynamicModelConfigs).length} models`);
 }
 
@@ -204,6 +204,32 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
     }
 
     // 5. Send Request
+    // Log the actual context/prompt being sent for debugging
+    if (prompt) {
+        try {
+            const contextLog = {
+                type: 'REQUEST_CONTEXT',
+                promptPreview: prompt,
+                fullPromptLength: prompt.length,
+                files: fileList.map(f => f[1]), // Filenames
+                model: model,
+                contextIds: context.contextIds,
+                timestamp: new Date().toISOString()
+            };
+
+            // Send to Sidepanel Console (via Background)
+            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                chrome.runtime.sendMessage({
+                    action: 'DEBUG_LOG',
+                    message: JSON.stringify(contextLog, null, 2)
+                }).catch(() => { }); // Ignore if background not ready
+            }
+            console.log('[GeminiAPI] Sending Request:', contextLog);
+        } catch (e) {
+            console.warn('[GeminiAPI] Logging failed:', e);
+        }
+    }
+
     // IMPORTANT: Include /u/{index}/ in URL to ensure cookies match the requested authUser
     const endpoint = `https://gemini.google.com/u/${context.authUser}/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate?${queryParams.toString()}`;
 
@@ -229,14 +255,14 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
     let finalResult = null;
     let conversationTitle = null; // Store auto-generated title
     let isFirstChunk = true;
-    
+
     try {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-    
+
             const chunk = decoder.decode(value, { stream: true });
-    
+
             // Validate Login Session on first chunk
             if (isFirstChunk) {
                 if (chunk.includes('<!DOCTYPE html>') || chunk.includes('<html') || chunk.includes('Sign in')) {
@@ -244,15 +270,15 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
                 }
                 isFirstChunk = false;
             }
-    
+
             buffer += chunk;
-    
+
             // Parse Lines
             let newlineIndex;
             while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
                 const line = buffer.slice(0, newlineIndex);
                 buffer = buffer.slice(newlineIndex + 1);
-    
+
                 const parsed = parseGeminiLine(line);
                 if (parsed) {
                     // Check if this line contains the auto-generated title
@@ -273,7 +299,7 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
         if (e.message.includes("未登录")) throw e;
         console.error("Stream reading error:", e);
     }
-    
+
     if (buffer.length > 0) {
         const parsed = parseGeminiLine(buffer);
         if (parsed) {

@@ -136,6 +136,15 @@ class ToolbarActions {
         };
 
         this.lastRequest = msg;
+
+        // Log the selection content being processed
+        if (selection) {
+            chrome.runtime.sendMessage({
+                action: 'DEBUG_LOG',
+                message: `[ToolbarAction] ${actionType.toUpperCase()} Input Content:\n${selection}`
+            });
+        }
+
         chrome.runtime.sendMessage(msg);
     }
 
@@ -143,12 +152,12 @@ class ToolbarActions {
         // Extract Gem ID from model if it's in the format "gem:ID"
         let actualModel = model;
         let actualGemId = gemId;
-        
+
         if (model && model.startsWith('gem:')) {
             actualGemId = model.substring(4); // Extract ID after "gem:"
             actualModel = 'gem'; // Use 'gem' as the model
         }
-        
+
         // If Gem model is selected, ensure we have a Gem ID
         if (actualModel === 'gem' && !actualGemId) {
             console.warn('[ToolbarActions] Gem model selected but no Gem ID available!');
