@@ -53,6 +53,12 @@ function copyStaticFiles() {
         resolve(__dirname, 'services'),
         resolve(distDir, 'services')
       );
+
+      // Copy sandbox/vendor (Critical: These are loaded via script tags, not bundled)
+      copyDir(
+        resolve(__dirname, 'sandbox/vendor'),
+        resolve(distDir, 'sandbox/vendor')
+      );
       
       console.log('✓ Static files copied to dist/');
     }
