@@ -101,6 +101,22 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
         }
     }
 
+    // Normalize Gem ID (Strip 'model:' and 'gemini-custom-' prefix if present)
+    let actualGemId = gemId;
+    if (actualGemId) {
+        if (actualGemId.startsWith('model:')) {
+            actualGemId = actualGemId.substring(6);
+        }
+        if (actualGemId.startsWith('gemini-custom-')) {
+            actualGemId = actualGemId.substring(14);
+        }
+    }
+
+    let requestUUID = null;
+    if (actualGemId || model === 'gem') {
+        requestUUID = self.crypto.randomUUID().toUpperCase();
+    }
+
     const modelConfig = getModelConfig(model);
 
     // 2. Handle File Uploads (Multimodal)
@@ -173,8 +189,16 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
         null, // 16
         null, // 17
         null, // 18
-        gemId // 19: Gem ID injected here
+        actualGemId // 19: Gem ID injected here (Normalised)
     ];
+
+    // For Gems, we need to inject the UUID at index 59
+    if (actualGemId && requestUUID) {
+        while (data.length < 60) {
+            data.push(null);
+        }
+        data[59] = requestUUID;
+    }
 
     // The API expects: f.req = JSON.stringify([null, JSON.stringify(data)])
     // This wrapper is still required for Batchexecute-style endpoints like StreamGenerate
@@ -197,10 +221,9 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
     };
 
     // Gems Header Injection
-    // For 'gem' model, gemId is required and will be set in the header
-    // For other models, gemId is optional (can override to use a specific Gem)
-    if (gemId || model === 'gem') {
-        headers['x-goog-ext-525005358-jspb'] = `["${gemId}",1]`;
+    // For 'gem' model, proper headers are required
+    if (actualGemId || model === 'gem') {
+        headers['x-goog-ext-525005358-jspb'] = `["${requestUUID}",1]`;
     }
 
     // 5. Send Request
