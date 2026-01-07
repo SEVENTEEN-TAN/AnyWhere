@@ -138,9 +138,9 @@ export function appendMessage(container, text, role, attachment = null, thoughts
         // Actually, CSS targets .msg.ai p, .msg.ai h1 etc.
         // So contentDiv needs to be transparent or removed if possible, 
         // OR we just ensure it inherits/doesn't block.
-        contentDiv.className = 'markdown-content'; 
+        contentDiv.className = 'markdown-content';
         contentContainer.appendChild(contentDiv);
-        
+
         // Initial Render
         // For initial render (history load), we use the text as-is, then refine it.
         renderContent(contentDiv, currentText, role);
@@ -183,13 +183,13 @@ export function appendMessage(container, text, role, attachment = null, thoughts
             if (currentModel) {
                 const modelSpan = document.createElement('span');
                 modelSpan.className = 'model-name';
-                
+
                 // Format: if it's a Gem, show "Gem-[Name]", otherwise show model name
                 let displayModel = currentModel;
                 if (currentModel === 'gem' && currentGemName) {
                     displayModel = `Gem-${currentGemName}`;
                 }
-                
+
                 modelSpan.innerHTML = `⚡ ${escapeHtml(displayModel)}`;
                 footerContainer.appendChild(modelSpan);
             }
@@ -305,8 +305,14 @@ export function appendMessage(container, text, role, attachment = null, thoughts
                 const firstImage = images[0];
                 grid.appendChild(createGeneratedImage(firstImage));
 
-                // Insert before copy button
-                div.insertBefore(grid, div.querySelector('.copy-btn'));
+                // Insert before footer (which is a direct child)
+                const footer = div.querySelector('.msg-footer');
+                if (footer) {
+                    div.insertBefore(grid, footer);
+                } else {
+                    // Fallback if footer missing (unlikely)
+                    div.appendChild(grid);
+                }
                 // Do not force scroll here either
             }
         },
@@ -347,7 +353,7 @@ function processRenderedContent(container, contentDiv) {
     if (markmapNodes.length > 0) {
         // Mark them immediately to prevent double processing in next tick
         markmapNodes.forEach(n => n.classList.add('processed-markmap'));
-        
+
         loadMarkmap().then(({ Transformer, Markmap }) => {
             const transformer = new Transformer();
 
@@ -539,11 +545,11 @@ function processRenderedContent(container, contentDiv) {
 function extractAndRenderSuggestions(container, contentDiv) {
     // Strategy: Look at the full text content of the div.
     // If it ends with a JSON array pattern, extract it, remove the corresponding DOM nodes, and render buttons.
-    
+
     // We only process if we haven't already rendered suggestions (or if we want to update them)
     // But since this is destructive to the DOM (removing text), we must be careful.
     // We'll search the text content.
-    
+
     const fullText = contentDiv.textContent;
     if (!fullText) return;
 
@@ -557,7 +563,7 @@ function extractAndRenderSuggestions(container, contentDiv) {
 
     // Try Explicit Tag first (regex against textContent handles case where HTML tags were stripped or rendered)
     match = fullText.match(tagRegex);
-    
+
     // If not found, try implicit array at end
     if (!match) {
         match = fullText.match(jsonArrayRegex);
@@ -572,13 +578,13 @@ function extractAndRenderSuggestions(container, contentDiv) {
 
             if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(i => typeof i === 'string')) {
                 suggestions = parsed;
-                
+
                 // Now, the tricky part: REMOVING it from the DOM.
                 // Since Markmap/Markdown might have split this across multiple nodes (p, code, pre),
                 // the safest way is to "hide" the elements containing this specific string.
                 // Or, strictly for the visual cleanup, we can walk backwards from the end.
-                
-                hideTextInDOM(contentDiv, match[0]); 
+
+                hideTextInDOM(contentDiv, match[0]);
             }
         } catch (e) {
             // Invalid JSON, ignore
@@ -604,14 +610,14 @@ function hideTextInDOM(root, textToRemove) {
     // But let's try to remove the text content where it appears.
     // Since Markdown might split it, this is imperfect, but usually the suggestions block 
     // is a single block at the end.
-    
+
     for (let i = nodes.length - 1; i >= 0; i--) {
         const n = nodes[i];
         if (n.textContent.includes(textToRemove)) {
             n.textContent = n.textContent.replace(textToRemove, '');
             // If parent is now empty, hide it (e.g. empty <p>)
             if (!n.textContent.trim() && n.parentNode && n.parentNode !== root) {
-                 n.parentNode.style.display = 'none';
+                n.parentNode.style.display = 'none';
             }
             return; // Found and removed
         }
@@ -619,18 +625,18 @@ function hideTextInDOM(root, textToRemove) {
         // For now, assume the JSON array doesn't span multiple block elements in a way that breaks this simple check
         // (Marked usually puts the whole block in one <p> or <pre>)
     }
-    
+
     // Fallback: If exact text match failed (formatting differences), try to hide elements containing "suggestions" tag
     if (textToRemove.includes('suggestions')) {
-         const elements = root.querySelectorAll('*');
-         elements.forEach(el => {
-             if (el.textContent.includes('<suggestions>') || el.textContent.includes('[') && el.textContent.includes(']')) {
-                 // Heuristic: if it looks like the suggestion block
-                 if (el.textContent.length < textToRemove.length + 20) {
-                     el.style.display = 'none';
-                 }
-             }
-         });
+        const elements = root.querySelectorAll('*');
+        elements.forEach(el => {
+            if (el.textContent.includes('<suggestions>') || el.textContent.includes('[') && el.textContent.includes(']')) {
+                // Heuristic: if it looks like the suggestion block
+                if (el.textContent.length < textToRemove.length + 20) {
+                    el.style.display = 'none';
+                }
+            }
+        });
     }
 }
 
