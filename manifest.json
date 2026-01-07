@@ -1,9 +1,16 @@
-
 {
   "manifest_version": 3,
   "name": "Anywhere",
-  "version": "4.0.0",
-  "permissions": ["sidePanel", "storage", "contextMenus", "scripting", "alarms", "debugger", "downloads"],
+  "version": "4.1.0",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "contextMenus",
+    "scripting",
+    "alarms",
+    "debugger",
+    "downloads"
+  ],
   "host_permissions": [
     "https://gemini.google.com/*",
     "<all_urls>"
@@ -35,13 +42,17 @@
     "default_path": "sidepanel/index.html"
   },
   "sandbox": {
-    "pages": ["sandbox/index.html"]
+    "pages": [
+      "sandbox/index.html"
+    ]
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "<all_urls>"
+      ],
       "js": [
-        "content/overlay.js", 
+        "content/overlay.js",
         "content/toolbar/icons.js",
         "content/toolbar/styles/core.js",
         "content/toolbar/styles/widget.js",
@@ -66,10 +77,10 @@
         "content/toolbar/ui/renderer.js",
         "content/toolbar/ui/actions_delegate.js",
         "content/toolbar/ui/code_copy.js",
-        "content/toolbar/ui/manager.js", 
+        "content/toolbar/ui/manager.js",
         "content/toolbar/actions.js",
         "content/toolbar/image.js",
-        "content/toolbar/stream.js", 
+        "content/toolbar/stream.js",
         "content/toolbar/utils/input.js",
         "content/selection.js",
         "content/scroll_utils.js",
@@ -84,8 +95,13 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["logo.png", "sandbox/index.html"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "logo.png",
+        "sandbox/index.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "content_security_policy": {
