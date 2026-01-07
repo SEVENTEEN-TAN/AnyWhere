@@ -1,6 +1,10 @@
 <div align="center">
   <img src="logo.png" alt="AnyWhere" width="80" height="80">
   <h1>AnyWhere</h1>
+  
+  [![Version](https://img.shields.io/badge/version-v4.1.1-blue.svg)](https://github.com/SEVENTEEN-TAN/AnyWhere/releases)
+  [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
   <p>🚀 一款强大的 AI 助手 Chrome 扩展，由 Google Gemini 驱动</p>
   <p>
     <a href="#features">功能</a> •
@@ -40,7 +44,9 @@
 
 ### 🧠 智能网页总结 (Web Summary)
 - **全文摘要**：一键提炼长文核心观点。
-- **思维导图**：自动将网页内容转化为 **Markmap 思维导图**，支持交互缩放、节点展开/收起，并可导出为 SVG/PNG 图片。
+- **思维导图**：自动将网页内容转化为 **Markmap 思维导图**。
+  - **可视化交互**：支持节点缩放、拖拽与展开/收起。
+  - **导出功能**：支持导出为 **PNG 图片** 或复制为 **层级文本** (Outline)，方便笔记整理。
 
 ### 🌐 浏览器自动化 (Browser Control / MCP)
 基于 MCP (Model Context Protocol) 协议的浏览器控制能力。
@@ -143,7 +149,16 @@ AnyWhere/
 <a id="changelog"></a>
 ## 📅 更新日志 (Changelog)
 
-### v4.0.0 (Current)
+### v4.1.1 (Current)
+- **🔧 Fixes**:
+  - 修复生产环境构建后 Markdown 渲染失效的问题（修复 `vendor` 依赖缺失）。
+- **✨ New Features**:
+  - **Mindmap 增强**：新增思维导图导出为 PNG 图片功能。
+  - **文本导出**：支持将思维导图结构一键复制为层级文本。
+- **⚡ Improvements**:
+  - 优化构建配置，确保静态资源正确打包。
+
+### v4.1.0
 - **🎉 Rebranding**: 项目正式更名为 **AnyWhere**。
 - **✨ New Features**:
   - 新增元素选择器 (Element Picker)，支持精准捕获网页特定区域作为上下文。
