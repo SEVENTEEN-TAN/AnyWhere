@@ -328,6 +328,7 @@
     async function scrollAndCollectContent(scrollTarget, options = {}) {
         const interval = parseInt(options.interval) || 200;
         const maxTime = parseInt(options.maxTime) || 15000;
+        const collectionTarget = options.collectionTarget || scrollTarget;
         const distance = 400;
 
         // Content collection
@@ -351,6 +352,7 @@
         // Enhanced logging for debugging
         log(`[ScrollCollect] 🚀 Starting Scroll & Collect`);
         log(`[ScrollCollect] Target: ${isDocumentScroll ? 'document' : `${scrollTarget.tagName}.${scrollTarget.className?.split(' ')[0] || ''}`}`);
+        log(`[ScrollCollect] Collection Scope: ${collectionTarget === scrollTarget ? 'Target' : `${collectionTarget.tagName}.${collectionTarget.className?.split(' ')[0] || ''}`}`);
         log(`[ScrollCollect] Settings: interval=${interval}ms, maxTime=${maxTime}ms, distance=${distance}px`);
 
         // Create indicator
@@ -359,7 +361,7 @@
         document.body.appendChild(indicator);
 
         // Collect initial content before scrolling
-        const initialCollect = collectVisibleContent(scrollTarget, seenFingerprints, isDocumentScroll);
+        const initialCollect = collectVisibleContent(collectionTarget, seenFingerprints, isDocumentScroll);
         collectedTexts.push(...initialCollect.newTexts);
         log(`[ScrollCollect] 📝 Initial collection: ${initialCollect.newCount} blocks`);
 
@@ -405,7 +407,7 @@
                 // Increased delay for DOM to update (especially for slow pages)
                 setTimeout(() => {
                     // Collect content after scroll
-                    const collected = collectVisibleContent(scrollTarget, seenFingerprints, isDocumentScroll);
+                    const collected = collectVisibleContent(collectionTarget, seenFingerprints, isDocumentScroll);
                     if (collected.newCount > 0) {
                         collectedTexts.push(...collected.newTexts);
                         totalBlocksCollected += collected.newCount;
@@ -458,7 +460,7 @@
                 document.removeEventListener('keydown', escHandler);
 
                 // Final collection at current position
-                const finalCollect = collectVisibleContent(scrollTarget, seenFingerprints, isDocumentScroll);
+                const finalCollect = collectVisibleContent(collectionTarget, seenFingerprints, isDocumentScroll);
                 if (finalCollect.newCount > 0) {
                     collectedTexts.push(...finalCollect.newTexts);
                     totalBlocksCollected += finalCollect.newCount;

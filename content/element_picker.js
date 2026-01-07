@@ -1,7 +1,7 @@
 // content/element_picker.js
 // Element Picker with overlay-based highlighting (framework-agnostic)
 
-(function() {
+(function () {
     'use strict';
 
     // =========================================================================
@@ -803,6 +803,21 @@
                             if (content) allContents.push(content);
                         } catch (e) {
                             console.warn('[ElementPicker] Incremental scroll failed:', e);
+                        }
+                    } else if (ScrollUtils && ScrollUtils.scrollAndCollectContent && ScrollUtils.isScrollable(document).isScrollableY) {
+                        // Fallback: Document itself is scrollable, use it as scroll target but collect from selected element
+                        console.log(`[ElementPicker] No scrollable parent found, using document scroll fallback`);
+                        try {
+                            const target = document.scrollingElement || document.documentElement || document.body;
+                            // Critical: Pass collectionTarget to only collect content from the user's selection
+                            const content = await ScrollUtils.scrollAndCollectContent(target, {
+                                interval,
+                                maxTime,
+                                collectionTarget: firstEl
+                            });
+                            if (content) allContents.push(content);
+                        } catch (e) {
+                            console.warn('[ElementPicker] Document scroll failed:', e);
                         }
                     } else {
                         // No scrollable container or scrollAndCollectContent not available - get static content
