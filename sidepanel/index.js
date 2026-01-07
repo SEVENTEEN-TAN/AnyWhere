@@ -13,6 +13,9 @@ const cachedLang = localStorage.getItem('geminiLanguage') || 'system';
 // Set src immediately to start loading HTML (Parallel with storage fetch)
 iframe.src = `../sandbox/index.html?theme=${cachedTheme}&lang=${cachedLang}`;
 
+// Get Version from Manifest
+const appVersion = chrome.runtime.getManifest().version;
+
 
 // --- Optimization: 2. Async Data Fetch ---
 let preFetchedData = null;
@@ -121,6 +124,12 @@ function trySendInitData() {
         action: 'RESTORE_THEME',
         payload: cachedTheme
     }, '*');
+
+    // Push Version
+    win.postMessage({
+        action: 'RESTORE_VERSION',
+        payload: appVersion
+    }, '*');
 }
 
 // --- Safety Timeout ---
@@ -159,7 +168,7 @@ window.addEventListener('message', (event) => {
     // --- Open URL in New Tab (From Sandbox Links) ---
     if (action === 'OPEN_URL') {
         // Handle direct url property (from events.js) or payload structure
-        const url = event.data.url || (payload && (payload.url || payload)); 
+        const url = event.data.url || (payload && (payload.url || payload));
         if (url && typeof url === 'string') {
             chrome.tabs.create({ url });
         }
@@ -199,9 +208,9 @@ window.addEventListener('message', (event) => {
         const messageId = event.data.messageId;
         const userIndex = event.data.userIndex || '0';
         const forceRefresh = event.data.forceRefresh || false;
-        
+
         console.log('[Sidepanel] FETCH_GEMS_LIST request received:', { messageId, userIndex, forceRefresh });
-        
+
         chrome.runtime.sendMessage({
             action: 'FETCH_GEMS_LIST',
             userIndex: userIndex,
@@ -219,7 +228,7 @@ window.addEventListener('message', (event) => {
                 }
                 return;
             }
-            
+
             console.log('[Sidepanel] FETCH_GEMS_LIST response from background:', response);
             if (iframe.contentWindow) {
                 iframe.contentWindow.postMessage({
@@ -237,9 +246,9 @@ window.addEventListener('message', (event) => {
         const messageId = event.data.messageId;
         const userIndex = event.data.userIndex || '0';
         const forceRefresh = event.data.forceRefresh || false;
-        
+
         console.log('[Sidepanel] FETCH_MODELS_LIST request received:', { messageId, userIndex, forceRefresh });
-        
+
         chrome.runtime.sendMessage({
             action: 'FETCH_MODELS_LIST',
             userIndex: userIndex,
@@ -257,7 +266,7 @@ window.addEventListener('message', (event) => {
                 }
                 return;
             }
-            
+
             console.log('[Sidepanel] FETCH_MODELS_LIST response from background:', response);
             if (iframe.contentWindow) {
                 iframe.contentWindow.postMessage({
@@ -311,6 +320,16 @@ window.addEventListener('message', (event) => {
             iframe.contentWindow.postMessage({
                 action: 'RESTORE_LANGUAGE',
                 payload: lang
+            }, '*');
+        }
+    }
+
+    if (action === 'GET_VERSION') {
+        const appVersion = chrome.runtime.getManifest().version;
+        if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage({
+                action: 'RESTORE_VERSION',
+                payload: appVersion
             }, '*');
         }
     }
@@ -414,7 +433,7 @@ window.addEventListener('message', (event) => {
     }
     if (action === 'SAVE_AUTO_SCROLL_SETTINGS') {
         const { interval, maxTime } = payload;
-        chrome.storage.local.set({ 
+        chrome.storage.local.set({
             geminiAutoScrollInterval: interval,
             geminiAutoScrollMaxTime: maxTime
         });

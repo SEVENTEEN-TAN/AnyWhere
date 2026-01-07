@@ -43,8 +43,11 @@ export class SettingsView {
             sidebarRadios: document.querySelectorAll('input[name="sidebar-behavior"]'),
 
             scrollIntervalInput: get('scroll-interval'),
+            scrollIntervalInput: get('scroll-interval'),
             scrollMaxTimeInput: get('scroll-max-time'),
-            contextLimitInput: get('context-limit')
+            contextLimitInput: get('context-limit'),
+
+            appVersion: get('app-version')
         };
     }
 
@@ -259,6 +262,12 @@ export class SettingsView {
             applied = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         document.documentElement.setAttribute('data-theme', applied);
+    }
+
+    setVersion(version) {
+        if (this.elements.appVersion) {
+            this.elements.appVersion.textContent = `v${version}`;
+        }
     }
 
     displayStars(count) {

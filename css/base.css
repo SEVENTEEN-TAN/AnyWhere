@@ -1,4 +1,3 @@
-
 :root {
     /* --- Light Theme (Default) --- */
     --bg-body: #ffffff;
@@ -6,25 +5,28 @@
     --bg-modal: #ffffff;
     --bg-input: #f0f4f9;
     --bg-input-focus: #ffffff;
-    --bg-overlay: rgba(0,0,0,0.4);
-    
+    --bg-overlay: rgba(0, 0, 0, 0.4);
+
     --text-primary: #1f1f1f;
     --text-secondary: #444746;
     --text-tertiary: #5e5e5e;
     --text-inverse: #ffffff;
-    
+
     --border-color: #e1e3e1;
     --border-focus: #d3e3fd;
-    
+
     /* User Message Bubble */
     --bg-user-msg: #f0f4f9;
     --text-user-msg: #1f1f1f;
+
+    /* AI Message Bubble */
+    --bg-ai-msg: #f8f9fa;
 
     /* Interactive Elements */
     --btn-hover: #e0e4e9;
     --btn-active-bg: #c2e7ff;
     --btn-active-text: #001d35;
-    
+
     --sidebar-new-chat-bg: #dde3ea;
     --sidebar-new-chat-text: #041e49;
     --sidebar-new-chat-hover: #ffffff;
@@ -33,24 +35,24 @@
     --primary: #0b57d0;
     --primary-hover: #0842a0;
     --on-primary: #ffffff;
-    
+
     /* Toolbar / Tools */
-    --tool-bg: rgba(255,255,255,0.8);
+    --tool-bg: rgba(255, 255, 255, 0.8);
     --tool-hover: #f0f4f9;
-    
+
     /* Icon Buttons (Floating/Header) */
     --icon-btn-bg: rgba(255, 255, 255, 0.85);
     --icon-btn-hover: rgba(255, 255, 255, 0.95);
     --icon-btn-border: rgba(255, 255, 255, 0.5);
-    
+
     /* Code Blocks */
     --code-bg: #1e1e1e;
     --code-text: #e3e3e3;
     --inline-code-bg: #f0f4f9;
-    
+
     /* Inputs */
     --input-placeholder: #8e918f;
-    
+
     /* Footer Gradient */
     --footer-gradient-start: #ffffff;
 }
@@ -62,19 +64,21 @@
     --bg-modal: #2d2e2f;
     --bg-input: #1e1f20;
     --bg-input-focus: #2d2e2f;
-    --bg-overlay: rgba(0,0,0,0.6);
-    
+    --bg-overlay: rgba(0, 0, 0, 0.6);
+
     --text-primary: #e3e3e3;
     --text-secondary: #c4c7c5;
     --text-tertiary: #8e918f;
     --text-inverse: #1f1f1f;
-    
+
     --border-color: #444746;
     --border-focus: #5e5e5e;
-    
+
     /* User Message Bubble */
     --bg-user-msg: #2d2e2f;
     --text-user-msg: #e3e3e3;
+
+    --bg-ai-msg: #1e1f20;
 
     --btn-hover: #333537;
     --btn-active-bg: #004a77;
@@ -83,38 +87,38 @@
     --sidebar-new-chat-bg: #2d2e2f;
     --sidebar-new-chat-text: #e3e3e3;
     --sidebar-new-chat-hover: #3c3d3f;
-    
+
     /* Adjusted Blue for Dark Mode */
-    --primary: #4a90e2; 
+    --primary: #4a90e2;
     --primary-hover: #357abd;
     --on-primary: #ffffff;
-    
+
     --tool-bg: rgba(45, 46, 47, 0.8);
     --tool-hover: #3c3d3f;
-    
+
     --icon-btn-bg: rgba(45, 46, 47, 0.85);
     --icon-btn-hover: rgba(60, 61, 63, 0.95);
     --icon-btn-border: rgba(255, 255, 255, 0.1);
-    
+
     /* Code */
     --code-bg: #28292a;
     --inline-code-bg: #2d2e2f;
-    
+
     --input-placeholder: #8e918f;
-    
+
     --footer-gradient-start: #131314;
 }
 
-body { 
-    margin: 0; 
-    padding: 0; 
-    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
-    display: flex; 
-    flex-direction: column; 
-    height: 100vh; 
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
     background: var(--bg-body);
-    color: var(--text-primary); 
-    overflow: hidden; 
+    color: var(--text-primary);
+    overflow: hidden;
     -webkit-font-smoothing: antialiased;
     transition: background-color 0.2s ease, color 0.2s ease;
 }
@@ -127,4 +131,6 @@ body {
     overflow: hidden;
 }
 
-* { box-sizing: border-box; }
+* {
+    box-sizing: border-box;
+}

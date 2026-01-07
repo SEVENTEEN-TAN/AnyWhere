@@ -93,7 +93,7 @@ export function appendMessage(container, text, role, attachment = null, thoughts
         const bubble = document.createElement('div');
         bubble.className = 'ai-bubble';
         // Explicit background for visibility
-        bubble.style.background = '#f8f9fa'; // Light gray, works in both themes
+        bubble.style.background = 'var(--bg-ai-msg)'; // Adaptive theme support
         bubble.style.borderRadius = '12px';
         bubble.style.padding = '14px 16px';
         bubble.style.marginTop = '4px';

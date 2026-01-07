@@ -86,6 +86,11 @@ export class SettingsController {
                     contextLimit !== undefined ? contextLimit : 500000
                 );
             }
+
+            // Version Response
+            if (e.data.action === 'RESTORE_VERSION') {
+                this.view.setVersion(e.data.payload);
+            }
         });
     }
 
@@ -112,6 +117,9 @@ export class SettingsController {
 
         // Fetch MCP Config
         this.fetchMcpConfig();
+
+        // Fetch Version (ensure it is up to date)
+        this.fetchVersion();
 
         this.fetchGithubStars();
 
@@ -246,6 +254,10 @@ export class SettingsController {
     }
 
     // --- MCP Methods ---
+
+    fetchVersion() {
+        window.parent.postMessage({ action: 'GET_VERSION' }, '*');
+    }
 
     fetchMcpConfig() {
         sendToBackground({ action: 'MCP_GET_CONFIG' });

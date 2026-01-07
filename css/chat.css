@@ -64,9 +64,19 @@ body.layout-wide .msg.ai {
     padding: 12px 20px;
     border-radius: 24px;
     max-width: 85%;
-    white-space: pre-wrap;
+    border-radius: 24px;
+    max-width: 85%;
     overflow: visible;
     /* Allow copy button to float outside */
+}
+
+/* Fix for extra height in user bubbles due to markdown p tags */
+.msg.user p {
+    margin: 0;
+}
+
+.msg.user p+p {
+    margin-top: 8px;
 }
 
 /* User Copy Button - Floating on Hover */
@@ -509,7 +519,7 @@ body.layout-wide .msg.ai {
     color: var(--primary);
     border-color: var(--primary);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .suggestions-container {
