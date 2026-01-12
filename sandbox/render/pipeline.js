@@ -1,4 +1,3 @@
-
 // sandbox/render/pipeline.js
 import { MathHandler } from './math_utils.js';
 
@@ -23,9 +22,12 @@ export function transformMarkdown(text) {
         return text == null ? '' : String(text);
     }
 
-    if (typeof marked === 'undefined') {
+    const markedLib = window.marked || (typeof marked !== 'undefined' ? marked : undefined);
+
+    if (typeof markedLib === 'undefined') {
         // Library loads asynchronously; app will rerender when ready.
         // Return raw text in the meantime without polluting console.
+        // console.warn("[Pipeline] marked lib is undefined, returning raw text");
         return text;
     }
 
@@ -46,10 +48,33 @@ export function transformMarkdown(text) {
         .replace(/\\>/g, '>')      // Fix: \> → >
         .replace(/\\-/g, '-');     // Fix: \- → -
 
-    // 3. Parse Markdown
-    let html = marked.parse(processedText);
+    // 3. Fix YouTube timestamp links: [[time](url)] → [time](url)
+    // Gemini often returns timestamp links in double-bracket format
+    processedText = processedText.replace(/\[\[([^\]]+)\]\(([^)]+)\)\]/g, '[$1]($2)');
 
-    // 4. Restore Math blocks
+    // 4. Parse Markdown
+    // Configure marked to use highlight.js for code blocks
+    let html = markedLib.parse(processedText, {
+        highlight: function(code, lang) {
+            // Support 'markmap' language - keep it raw for the Markmap Loader to handle
+            if (lang === 'markmap') {
+                // Ensure we don't double-escape, marked might escape inside code blocks
+                // We return a special div that our post-processor or loader will find
+                return `<div class="markmap-source" style="display:none;">${code}</div><div class="markmap-container"></div>`;
+            }
+            // Support 'mermaid' language - keep it raw for the Mermaid Loader to handle
+            if (lang === 'mermaid') {
+                return `<div class="mermaid">${code}</div>`;
+            }
+            if (typeof hljs !== 'undefined') {
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                return hljs.highlight(code, { language }).value;
+            }
+            return code;
+        }
+    });
+
+    // 5. Restore Math blocks
     html = mathHandler.restore(html);
 
     return html;

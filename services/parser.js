@@ -96,8 +96,15 @@ export function parseGeminiLine(line) {
                          if ((obj.startsWith('http') || obj.startsWith('//')) && 
                              (obj.includes('googleusercontent.com') || obj.includes('ggpht.com'))) {
                              
-                             // CRITICAL: Exclude the placeholder URL which looks like .../image_generation_content/0
-                             if (obj.includes('image_generation_content')) return;
+                             // CRITICAL: Exclude placeholder URLs
+                             // - image_generation_content: Standard placeholder
+                             // - youtube_content: YouTube summary placeholder
+                             // - Most placeholders end with /0
+                             if (obj.includes('image_generation_content') ||
+                                 obj.includes('youtube_content') ||
+                                 obj.match(/\/\d+$/)) {  // Ends with /number (e.g., /0, /1)
+                                 return;
+                             }
 
                              // Normalize protocol
                              let url = obj;
@@ -140,14 +147,14 @@ export function parseGeminiLine(line) {
                      if (idx !== 1) traverse(part);
                  });
 
-                 // CLEANUP: If we successfully found real images, remove the ugly placeholder text.
-                 // Placeholder format: http://googleusercontent.com/image_generation_content/0
-                 if (generatedImages.length > 0) {
-                     text = text.replace(/https?:\/\/googleusercontent\.com\/image_generation_content\/\d+/g, '');
-                     // Remove potential empty markdown links created by this removal
-                     text = text.replace(/\[\s*\]\(\s*\)/g, '');
-                     text = text.trim();
-                 }
+                 // CLEANUP: Always remove placeholder URLs from text (even if no real images found)
+                 // Placeholder formats:
+                 // - http://googleusercontent.com/image_generation_content/0
+                 // - http://googleusercontent.com/youtube_content/0
+                 text = text.replace(/https?:\/\/googleusercontent\.com\/(image_generation_content|youtube_content)\/\d+/g, '');
+                 // Remove potential empty markdown links created by this removal
+                 text = text.replace(/\[\s*\]\(\s*\)/g, '');
+                 text = text.trim();
 
                  return {
                      text: text,

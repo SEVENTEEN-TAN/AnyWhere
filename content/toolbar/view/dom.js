@@ -32,15 +32,15 @@
         }
 
         _loadMathLibs() {
-            // 1. Inject KaTeX CSS into Shadow DOM
+            // 1. Inject KaTeX CSS into Shadow DOM (使用本地资源)
             const link = document.createElement('link');
             link.rel = 'stylesheet';
-            link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css';
+            link.href = chrome.runtime.getURL('sandbox/vendor/katex.min.css');
             this.shadow.appendChild(link);
-            
+
             const hljsLink = document.createElement('link');
             hljsLink.rel = 'stylesheet';
-            hljsLink.href = 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css';
+            hljsLink.href = chrome.runtime.getURL('sandbox/vendor/atom-one-dark.min.css');
             this.shadow.appendChild(hljsLink);
         }
     }

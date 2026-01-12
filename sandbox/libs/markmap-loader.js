@@ -37,6 +37,19 @@ export async function loadMarkmap() {
         await loadScript('vendor/markmap-view.js');
         await loadScript('vendor/markmap-lib.js');
 
+        // Disable CDN providers after loading to enforce local-only resources
+        if (window.markmap && window.markmap.UrlBuilder) {
+            const UrlBuilderClass = window.markmap.UrlBuilder;
+            if (UrlBuilderClass.prototype && UrlBuilderClass.prototype.providers) {
+                UrlBuilderClass.prototype.providers = {};
+            }
+            // Also patch any existing instances
+            if (UrlBuilderClass.defaultProviders) {
+                UrlBuilderClass.defaultProviders = {};
+            }
+            console.log("[Markmap Loader] CDN providers disabled");
+        }
+
         loaded = true;
         return {
             Transformer: window.markmap.Transformer,
