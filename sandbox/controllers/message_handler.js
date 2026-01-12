@@ -253,6 +253,25 @@ export class MessageHandler {
         console.log("[MessageHandler] 自动生成标题:", request.title || '无');
         console.log("[MessageHandler] 完整响应:", JSON.stringify(request, null, 2));
         console.log("[MessageHandler] ========================================\n");
+        // Handle error case
+        if (request.isError && request.error) {
+            console.warn("[MessageHandler] Error response:", request.error);
+            this.app.isGenerating = false;
+            this.ui.setLoading(false);
+
+            // Display error message as AI response
+            const errorText = `❌ **错误**
+
+${request.error}`;
+
+            if (this.streamingBubble) {
+                this.streamingBubble.update(errorText, null);
+                this.streamingBubble = null;
+            } else {
+                appendMessage(this.ui.historyDiv, errorText, 'ai', null, null, []);
+            }
+            return;
+        }
 
         this.app.isGenerating = false;
         this.ui.setLoading(false);
@@ -331,6 +350,19 @@ export class MessageHandler {
 
                 img.classList.remove('loading');
                 img.style.minHeight = "auto";
+            } else if (request.error === "PLACEHOLDER_URL_DETECTED") {
+                // Handle specific placeholder case
+                img.classList.remove('loading');
+                img.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNlMGUwZTAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjMiIHk9IjMiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxOCIgcng9IjIiIHJ5PSIyIj48L3JlY3Q+PGNpcmNsZSBjeD0iOC41IiBjeT0iOC41IiByPSIxLjUiPjwvY2lyY2xlPjxwb2x5bGluZSBwb2ludHM9IjIxIDE1IDE2IDEwIDUgMjEiPjwvcG9seWxpbmU+PC9zdmc+';
+                img.style.padding = "40px";
+                img.style.background = "#f8f9fa";
+                img.alt = "Image generation unavailable";
+                img.title = "No image was generated for this response";
+                img.style.minHeight = "150px";
+                img.style.border = "1px solid #eee";
+                img.style.borderRadius = "8px";
+                img.style.display = "block";
+                img.style.margin = "10px 0";
             } else {
                 // Handle error visually
                 img.style.background = "#ffebee"; // Light red

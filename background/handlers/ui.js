@@ -2,11 +2,37 @@
 // background/handlers/ui.js
 
 export class UIMessageHandler {
-    constructor(imageHandler) {
+    constructor(imageHandler, videoManager, sessionHandler) {
         this.imageHandler = imageHandler;
+        this.videoManager = videoManager;
+        this.sessionHandler = sessionHandler;
     }
 
     handle(request, sender, sendResponse) {
+
+        // --- VIDEO SUMMARY ---
+        if (request.action === "VIDEO_SUMMARY") {
+            (async () => {
+                try {
+                    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+                    if (!tab) {
+                        throw new Error("No active tab");
+                    }
+                    
+                    // Notify UI that analysis started (optional, UI already shows status)
+                    
+                    await this.videoManager.summarizeVideo(tab, request.sessionId, request.model, request.gemId, this.sessionHandler);
+                    
+                    // We don't send a final response here because summarizeVideo triggers the session stream
+                } catch (e) {
+                    console.error("Video Summary Error", e);
+                    // Error is handled in VideoManager by sending error stream
+                } finally {
+                    sendResponse({ status: "started" });
+                }
+            })();
+            return true;
+        }
 
         // --- IMAGE FETCHING (USER INPUT) ---
         if (request.action === "FETCH_IMAGE") {

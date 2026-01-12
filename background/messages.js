@@ -13,14 +13,15 @@ import { deleteSessionFromServer } from '../services/session_api.js';
  * @param {BrowserControlManager} controlManager
  * @param {LogManager} logManager
  * @param {MCPManager} mcpManager
+ * @param {VideoManager} videoManager
  */
-export function setupMessageListener(sessionManager, imageHandler, controlManager, logManager, mcpManager) {
+export function setupMessageListener(sessionManager, imageHandler, controlManager, logManager, mcpManager, videoManager) {
 
     // Inject MCP Manager into Session Manager so it can use tools
     sessionManager.setMCPManager(mcpManager);
 
     const sessionHandler = new SessionMessageHandler(sessionManager, imageHandler, controlManager);
-    const uiHandler = new UIMessageHandler(imageHandler);
+    const uiHandler = new UIMessageHandler(imageHandler, videoManager, sessionHandler);
 
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
@@ -128,6 +129,36 @@ export function setupMessageListener(sessionManager, imageHandler, controlManage
                 // Sidepanel might not be open, ignore error
             });
             return false;
+        }
+
+        // --- PROXY FETCH (CORS Bypass) ---
+        if (request.action === 'PROXY_FETCH') {
+            (async () => {
+                try {
+                    const { url, options = {} } = request;
+                    console.log(`[Background] Proxy fetching: ${url}`);
+                    
+                    const response = await fetch(url, options);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const contentType = response.headers.get('content-type') || '';
+                    let data;
+                    if (contentType.includes('application/json')) {
+                        data = await response.json();
+                    } else {
+                        data = await response.text();
+                    }
+
+                    sendResponse({ success: true, data: data });
+                } catch (error) {
+                    console.error('[Background] Proxy fetch failed:', error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
         }
 
         // --- MCP MANAGEMENT ---

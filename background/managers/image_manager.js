@@ -1,4 +1,3 @@
-
 // background/managers/image_manager.js
 
 export class ImageManager {
@@ -6,6 +5,15 @@ export class ImageManager {
     // Fetch image from a URL or Data URI
     async fetchImage(url) {
         try {
+            // Check for specific placeholder URLs that indicate failure or no image
+            if (url && url.includes("googleusercontent.com/youtube_content/0")) {
+                return {
+                    action: "FETCH_IMAGE_RESULT",
+                    error: "PLACEHOLDER_URL_DETECTED",
+                    base64: null
+                };
+            }
+
             if (url.startsWith('data:')) {
                 const matches = url.match(/^data:(.+);base64,(.+)$/);
                 if (matches) {

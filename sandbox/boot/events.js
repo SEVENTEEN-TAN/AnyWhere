@@ -43,6 +43,18 @@ export function bindAppEvents(app, ui, setResizeRef) {
         });
     }
 
+    // Video Summary Button
+    const videoSummaryBtn = document.getElementById('video-summary-btn');
+    if (videoSummaryBtn) {
+        videoSummaryBtn.addEventListener('click', () => {
+            if (app.handleVideoSummary) {
+                app.handleVideoSummary();
+            } else {
+                console.error('AppController.handleVideoSummary is not defined');
+            }
+        });
+    }
+
     // Old 'draw-btn' removed
 
     // Browser Control (Functional Toggle)

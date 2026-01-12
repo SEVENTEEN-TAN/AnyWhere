@@ -34,6 +34,14 @@
                         delete this.requests[reqId];
                     }
                 }
+                // Handle Markmap Results
+                if (e.data.action === 'RENDER_MARKMAP_RESULT') {
+                    const { svg, error, reqId } = e.data;
+                    if (this.requests[reqId]) {
+                        this.requests[reqId]({ svg, error });
+                        delete this.requests[reqId];
+                    }
+                }
             });
         }
         
@@ -57,6 +65,34 @@
                      this.iframe.contentWindow.postMessage({ action: 'PROCESS_IMAGE', base64, reqId: id }, '*');
                 } else {
                      resolve(base64); // Fallback to original
+                }
+            });
+        }
+        
+        async renderMarkmap(markdown) {
+            const id = this.reqId++;
+            return new Promise((resolve, reject) => {
+                this.requests[id] = resolve;
+                // Add timeout
+                const timer = setTimeout(() => {
+                    if (this.requests[id]) {
+                        delete this.requests[id];
+                        reject(new Error("Markmap Render Timeout"));
+                    }
+                }, 5000);
+                
+                // Override resolve to clear timeout
+                const originalResolve = resolve;
+                this.requests[id] = (result) => {
+                    clearTimeout(timer);
+                    if (result.error) reject(new Error(result.error));
+                    else originalResolve(result.svg);
+                };
+
+                if (this.iframe.contentWindow) {
+                     this.iframe.contentWindow.postMessage({ action: 'RENDER_MARKMAP', markdown, reqId: id }, '*');
+                } else {
+                     reject(new Error("Renderer not ready"));
                 }
             });
         }

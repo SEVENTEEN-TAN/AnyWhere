@@ -8,6 +8,7 @@ import { GemsController } from './gems_controller.js';
 import { ModelsController } from './models_controller.js';
 import { t } from '../core/i18n.js';
 import { saveSessionsToStorage, sendToBackground } from '../../lib/messaging.js';
+import { appendMessage } from '../render/message.js';
 
 export class AppController {
     constructor(sessionManager, uiController, imageManager) {
@@ -262,6 +263,51 @@ export class AppController {
 
     handleFileUpload(files) {
         this.imageManager.handleFiles(files);
+    }
+
+    handleVideoSummary() {
+        this.ui.updateStatus(t('analyzingVideo') || "Analyzing video...");
+
+        // 1. Ensure Session
+        if (!this.sessionManager.currentSessionId) {
+            this.sessionManager.createSession();
+        }
+        const currentId = this.sessionManager.currentSessionId;
+        const session = this.sessionManager.getCurrentSession();
+
+        // 2. Set title if new
+        if (session.messages.length === 0) {
+            this.sessionManager.updateTitle(currentId, "Video Summary");
+            this.sessionFlow.refreshHistoryUI();
+        }
+
+        // 3. Display User Message
+        const displayPrompt = "Summarize video content";
+        appendMessage(
+            this.ui.historyDiv,
+            displayPrompt,
+            'user',
+            null, null, []
+        );
+        this.sessionManager.addMessage(currentId, 'user', displayPrompt, null);
+        saveSessionsToStorage(this.sessionManager.sessions);
+        this.sessionFlow.refreshHistoryUI();
+
+        // 4. Send to Background
+        const model = this.getSelectedModel();
+        // Get Gem ID if selected
+        const gemId = this.getSelectedGemId();
+
+        sendToBackground({
+            action: "VIDEO_SUMMARY",
+            sessionId: currentId,
+            model: model,
+            gemId: gemId
+        });
+
+        // 5. Set UI Loading
+        this.isGenerating = true;
+        this.ui.setLoading(true);
     }
 
     // handleMcpSelection removed (legacy)
