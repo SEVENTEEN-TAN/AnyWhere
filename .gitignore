@@ -32,3 +32,4 @@ package-lock.json
 src/
 tsconfig.json
 vite.config.ts
+.ace-tool/

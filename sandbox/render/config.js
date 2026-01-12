@@ -1,10 +1,10 @@
-
 // sandbox/render/config.js
 
 export function configureMarkdown() {
-    if (typeof marked === 'undefined') return;
+    const markedLib = window.marked || (typeof marked !== 'undefined' ? marked : undefined);
+    if (typeof markedLib === 'undefined') return;
 
-    const renderer = new marked.Renderer();
+    const renderer = new markedLib.Renderer();
 
     // Helper to escape HTML safely (used when syntax highlighting fails or for plaintext)
     const escapeHtml = (text) => {
@@ -73,7 +73,7 @@ export function configureMarkdown() {
             title = token.title;
             text = token.text;
         }
-        
+
         const titleAttr = title ? ` title="${title}"` : '';
         return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
     };
@@ -85,9 +85,9 @@ export function configureMarkdown() {
     };
 
     // Use marked.use() if available (v5+), otherwise fallback to setOptions (deprecated)
-    if (typeof marked.use === 'function') {
-        marked.use(options);
-    } else if (typeof marked.setOptions === 'function') {
-        marked.setOptions(options);
+    if (typeof markedLib.use === 'function') {
+        markedLib.use(options);
+    } else if (typeof markedLib.setOptions === 'function') {
+        markedLib.setOptions(options);
     }
 }
