@@ -28,65 +28,88 @@ export function initAppMode() {
 
     // 5. Async Bootstrapping
     (async () => {
-        // --- CRITICAL: Load dependencies FIRST before any rendering ---
-        await loadLibs();
-        configureMarkdown(); // Ensure marked is configured
+        try {
+            // --- CRITICAL: Load dependencies FIRST before any rendering ---
+            await loadLibs();
+            console.log("[App] Libraries loaded successfully");
+            console.log("[App] Available globals:", {
+                'd3': typeof window.d3,
+                'markmap': typeof window.markmap,
+                'katex': typeof window.katex,
+                'hljs': typeof window.hljs
+            });
+            configureMarkdown(); // Ensure marked is configured
 
-        // Dynamic Import of Application Logic
-        const [
-            { ImageManager },
-            { SessionManager },
-            { UIController },
-            { AppController }
-        ] = await Promise.all([
-            import('../core/image_manager.js'),
-            import('../core/session_manager.js'),
-            import('../ui/ui_controller.js'),
-            import('../controllers/app_controller.js')
-        ]);
+            // Dynamic Import of Application Logic
+            const [
+                { ImageManager },
+                { SessionManager },
+                { UIController },
+                { AppController }
+            ] = await Promise.all([
+                import('../core/image_manager.js'),
+                import('../core/session_manager.js'),
+                import('../ui/ui_controller.js'),
+                import('../controllers/app_controller.js')
+            ]);
 
-        // Init Managers
-        const sessionManager = new SessionManager();
+            // Init Managers
+            const sessionManager = new SessionManager();
 
-        const ui = new UIController({
-            historyListEl: document.getElementById('history-list'),
-            sidebar: document.getElementById('history-sidebar'),
-            sidebarOverlay: document.getElementById('sidebar-overlay'),
-            statusDiv: document.getElementById('status'),
-            historyDiv: document.getElementById('chat-history'),
-            inputFn: document.getElementById('prompt'),
-            sendBtn: document.getElementById('send'),
-            historyToggleBtn: document.getElementById('history-toggle'),
-            closeSidebarBtn: document.getElementById('close-sidebar'),
-            modelSelect: document.getElementById('model-select')
-        });
+            const ui = new UIController({
+                historyListEl: document.getElementById('history-list'),
+                sidebar: document.getElementById('history-sidebar'),
+                sidebarOverlay: document.getElementById('sidebar-overlay'),
+                statusDiv: document.getElementById('status'),
+                historyDiv: document.getElementById('chat-history'),
+                inputFn: document.getElementById('prompt'),
+                sendBtn: document.getElementById('send'),
+                historyToggleBtn: document.getElementById('history-toggle'),
+                closeSidebarBtn: document.getElementById('close-sidebar'),
+                modelSelect: document.getElementById('model-select')
+            });
 
-        const imageManager = new ImageManager({
-            imageInput: document.getElementById('image-input'),
-            imagePreview: document.getElementById('image-preview'),
-            previewThumb: document.getElementById('preview-thumb'),
-            removeImgBtn: document.getElementById('remove-img'),
-            inputWrapper: document.querySelector('.input-wrapper'),
-            inputFn: document.getElementById('prompt')
-        }, {
-            onUrlDrop: (url) => {
-                ui.updateStatus("Loading image...");
-                sendToBackground({ action: "FETCH_IMAGE", url: url });
-            }
-        });
+            const imageManager = new ImageManager({
+                imageInput: document.getElementById('image-input'),
+                imagePreview: document.getElementById('image-preview'),
+                previewThumb: document.getElementById('preview-thumb'),
+                removeImgBtn: document.getElementById('remove-img'),
+                inputWrapper: document.querySelector('.input-wrapper'),
+                inputFn: document.getElementById('prompt')
+            }, {
+                onUrlDrop: (url) => {
+                    ui.updateStatus("Loading image...");
+                    sendToBackground({ action: "FETCH_IMAGE", url: url });
+                }
+            });
 
-        // Initialize Controller
-        const app = new AppController(sessionManager, ui, imageManager);
-        
-        // Initialize Gems after app is ready
-        app.initializeGems();
+            // Initialize Controller
+            const app = new AppController(sessionManager, ui, imageManager);
 
-        // Connect Bridge to App Instances
-        bridge.setUI(ui);
-        bridge.setApp(app);
+            // Initialize Gems after app is ready
+            app.initializeGems();
 
-        // Bind DOM Events
-        bindAppEvents(app, ui, (fn) => bridge.setResizeFn(fn));
+            // Connect Bridge to App Instances
+            bridge.setUI(ui);
+            bridge.setApp(app);
 
+            // Bind DOM Events
+            bindAppEvents(app, ui, (fn) => bridge.setResizeFn(fn));
+        } catch (error) {
+            console.error("[App] Failed to initialize application:", error);
+            // Display error to user
+            document.body.innerHTML = `
+                <div style="padding: 20px; color: #d32f2f; font-family: sans-serif;">
+                    <h2>⚠️ Initialization Failed</h2>
+                    <p>Failed to load required libraries. Please:</p>
+                    <ul>
+                        <li>Check browser console for detailed errors</li>
+                        <li>Ensure all vendor files are present</li>
+                        <li>Try reloading the extension</li>
+                    </ul>
+                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow: auto;">${error.stack || error.message}</pre>
+                </div>
+            `;
+        }
     })();
 }

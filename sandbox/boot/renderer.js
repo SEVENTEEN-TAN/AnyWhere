@@ -9,9 +9,18 @@ export function initRendererMode() {
     document.body.innerHTML = ''; // Clear UI
 
     // Load libs immediately and track loading state
-    let libsLoadedPromise = loadLibs().catch(e => {
-        console.error("Failed to load libs in renderer mode", e);
-        return null;
+    let libsLoadedPromise = loadLibs().then(() => {
+        console.log("[Renderer] All libraries loaded successfully");
+        console.log("[Renderer] Available globals:", {
+            'd3': typeof window.d3,
+            'markmap': typeof window.markmap,
+            'katex': typeof window.katex,
+            'hljs': typeof window.hljs
+        });
+    }).catch(e => {
+        console.error("[Renderer] Failed to load libs:", e);
+        // Don't return null - let the error propagate
+        throw e;
     });
 
     window.addEventListener('message', async (e) => {
@@ -112,8 +121,24 @@ export function initRendererMode() {
                 // Ensure libraries are loaded before rendering
                 await libsLoadedPromise;
 
-                if (!window.markmap || !window.d3) {
-                     throw new Error("Markmap or D3 libraries not loaded");
+                // Detailed validation
+                console.log("[Renderer] Checking library availability:", {
+                    'd3': typeof window.d3,
+                    'markmap': typeof window.markmap,
+                    'markmap.Markmap': window.markmap ? typeof window.markmap.Markmap : 'N/A',
+                    'markmap.Transformer': window.markmap ? typeof window.markmap.Transformer : 'N/A'
+                });
+
+                if (!window.d3) {
+                    throw new Error("D3 library not loaded. Check vendor/d3.js");
+                }
+
+                if (!window.markmap) {
+                    throw new Error("Markmap library not loaded. Check vendor/markmap-*.js files");
+                }
+
+                if (!window.markmap.Markmap || !window.markmap.Transformer) {
+                    throw new Error(`Markmap components missing. Available: ${Object.keys(window.markmap).join(', ')}`);
                 }
 
                 const { Markmap, Transformer } = window.markmap;

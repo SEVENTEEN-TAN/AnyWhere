@@ -33,3 +33,4 @@ src/
 tsconfig.json
 vite.config.ts
 .ace-tool/
+tmpclaude-**-cwd
