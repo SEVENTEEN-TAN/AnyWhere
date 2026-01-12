@@ -237,12 +237,10 @@ export function bindAppEvents(app, ui, setResizeRef) {
         if (text) {
             const inputFn = document.getElementById('prompt');
             if (inputFn) {
-                // 1. Force enable Page Context if not already enabled
-                // Suggestions are usually derived from page content, so context is needed.
-                const contextBtn = document.getElementById('page-context-btn');
-                if (contextBtn && !contextBtn.classList.contains('active')) {
-                    // Programmatically activate context
-                    app.togglePageContext(true);
+                // 1. Enable Page Context silently if not already enabled
+                // Don't trigger element picker - just activate the context for follow-up questions
+                if (!app.pageContextActive) {
+                    app.setPageContext(true, null);
                 }
 
                 // 2. Fill and Send

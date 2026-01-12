@@ -71,7 +71,23 @@ ${snapshot}
         if (systemPreamble) {
             finalPrompt = systemPreamble + "Question: " + finalPrompt;
         }
-        
+
+        // Always append instructions for follow-up suggestions
+        const suggestionInstruction = `
+
+IMPORTANT: After your response, you MUST provide 3 follow-up question suggestions in the following format:
+<suggestions>
+["Suggestion 1?", "Suggestion 2?", "Suggestion 3?"]
+</suggestions>
+
+The suggestions should be:
+- Relevant to your response
+- Help users explore the topic further
+- Written as questions
+- Each 5-15 words long`;
+
+        finalPrompt += suggestionInstruction;
+
         console.log("[PromptBuilder] ========== 构建最终 Prompt ===========");
         console.log("[PromptBuilder] 原始用户输入:", request.text);
         console.log("[PromptBuilder] 包含网页上下文:", request.includePageContext ? '是' : '否');
@@ -79,7 +95,7 @@ ${snapshot}
         console.log("[PromptBuilder] 最终 Prompt 长度:", finalPrompt.length);
         console.log("[PromptBuilder] 最终 Prompt 内容:\n", finalPrompt);
         console.log("[PromptBuilder] ============================================\n");
-        
+
         return finalPrompt;
     }
 }
