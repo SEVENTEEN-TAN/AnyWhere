@@ -141,6 +141,29 @@ export class ControlOverlay {
                                     gap: 12px;
                                     font-weight: 500;
                                 }
+
+                                .status-content {
+                                    flex: 1;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 6px;
+                                }
+
+                                .progress-bar {
+                                    width: 100%;
+                                    height: 4px;
+                                    background: #e5e7eb;
+                                    border-radius: 2px;
+                                    overflow: hidden;
+                                }
+
+                                .progress-fill {
+                                    height: 100%;
+                                    background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+                                    border-radius: 2px;
+                                    transition: width 0.3s ease;
+                                    width: 0%;
+                                }
                                 
                                 .status-indicator {
                                     width: 10px;
@@ -179,12 +202,17 @@ export class ControlOverlay {
                         const panel = document.createElement('div');
                         panel.id = 'gemini-control-panel';
 
-                        // Status indicator
+                        // Status indicator with progress bar
                         const status = document.createElement('div');
                         status.className = 'control-status';
                         status.innerHTML = \`
                             <span class="status-indicator"></span>
-                            <span id="control-status-text">AI is controlling the browser...</span>
+                            <div class="status-content">
+                                <span id="control-status-text">AI is controlling the browser...</span>
+                                <div id="control-progress-bar" class="progress-bar" style="display: none;">
+                                    <div class="progress-fill"></div>
+                                </div>
+                            </div>
                         \`;
 
                         // Pause button
@@ -223,7 +251,9 @@ export class ControlOverlay {
                             pauseBtn,
                             continueBtn,
                             statusText: document.getElementById('control-status-text'),
-                            statusIndicator: status.querySelector('.status-indicator')
+                            statusIndicator: status.querySelector('.status-indicator'),
+                            progressBar: document.getElementById('control-progress-bar'),
+                            progressFill: document.querySelector('.progress-fill')
                         };
                     })()
                 `
@@ -242,8 +272,9 @@ export class ControlOverlay {
 
     /**
      * Pause automation - Allow user to interact with page
+     * @param {string} message - Optional custom message to display
      */
-    async pause() {
+    async pause(message = null) {
         if (!this.isVisible || this.isPaused) return;
         this.isPaused = true;
 
@@ -254,9 +285,19 @@ export class ControlOverlay {
                         const state = window.__geminiControlState;
                         if (!state) return;
 
-                        // Change status
-                        state.statusText.textContent = 'Paused - You can interact with the page';
+                        // Change status with custom message or default
+                        const customMessage = ${message ? `'${message.replace(/'/g, "\\'").replace(/\n/g, '\\n')}'` : 'null'};
+                        state.statusText.innerHTML = customMessage || 'Paused - You can interact with the page';
                         state.statusIndicator.classList.add('paused');
+
+                        // Make panel more prominent for user intervention
+                        if (customMessage) {
+                            state.panel.style.borderTop = '3px solid #ef4444';  // Red border for errors
+                            state.panel.style.maxWidth = '700px';  // Wider for error messages
+                            state.statusText.style.color = '#dc2626';  // Red text
+                            state.statusText.style.fontWeight = '600';  // Bold
+                            state.statusText.style.fontSize = '15px';  // Larger
+                        }
 
                         // Swap buttons
                         state.pauseBtn.style.display = 'none';
@@ -349,6 +390,214 @@ export class ControlOverlay {
             } else {
                 console.warn('[ControlOverlay] Failed to update status:', e.message);
             }
+        }
+    }
+
+    /**
+     * Update progress with optional detailed status
+     * @param {Object} options - Progress options
+     * @param {number} options.current - Current step
+     * @param {number} options.total - Total steps
+     * @param {string} [options.message] - Status message
+     * @param {number} [options.percentage] - Direct percentage (overrides current/total)
+     */
+    async updateProgress(options = {}) {
+        if (!this.isVisible) return;
+
+        const { current, total, message, percentage } = options;
+
+        // Calculate percentage
+        let percent = percentage;
+        if (percent === undefined && current !== undefined && total !== undefined) {
+            percent = total > 0 ? Math.round((current / total) * 100) : 0;
+        }
+
+        try {
+            await this.connection.sendCommand("Runtime.evaluate", {
+                expression: `
+                    (function() {
+                        const state = window.__geminiControlState;
+                        if (!state) return;
+
+                        // Update message if provided
+                        ${message ? `
+                            if (state.statusText) {
+                                const stepInfo = ${current !== undefined && total !== undefined}
+                                    ? '[${current}/${total}] '
+                                    : '';
+                                state.statusText.textContent = stepInfo + '${message.replace(/'/g, "\\'")}';
+                            }
+                        ` : ''}
+
+                        // Update progress bar
+                        if (${percent !== undefined}) {
+                            if (state.progressBar) {
+                                state.progressBar.style.display = 'block';
+                            }
+                            if (state.progressFill) {
+                                state.progressFill.style.width = '${percent}%';
+                            }
+                        }
+                    })()
+                `
+            });
+        } catch (e) {
+            if (e.message?.includes('No active debugger session')) {
+                // Expected when tab is closed/refreshed
+            } else {
+                console.warn('[ControlOverlay] Failed to update progress:', e.message);
+            }
+        }
+    }
+
+    /**
+     * Hide progress bar
+     */
+    async hideProgress() {
+        if (!this.isVisible) return;
+
+        try {
+            await this.connection.sendCommand("Runtime.evaluate", {
+                expression: `
+                    (function() {
+                        const state = window.__geminiControlState;
+                        if (state && state.progressBar) {
+                            state.progressBar.style.display = 'none';
+                            if (state.progressFill) {
+                                state.progressFill.style.width = '0%';
+                            }
+                        }
+                    })()
+                `
+            });
+        } catch (e) {
+            // Silent fail
+        }
+    }
+
+    /**
+     * Highlight an element before interaction
+     * @param {number} backendNodeId - Backend node ID of the element
+     * @param {string} action - Action description (e.g., "Clicking 'Submit'...")
+     * @param {number} duration - Highlight duration in ms (default: 800)
+     */
+    async highlightElement(backendNodeId, action = '', duration = 800) {
+        if (!this.connection.attached) return;
+
+        try {
+            // Get box model for the element
+            const { model } = await this.connection.sendCommand("DOM.getBoxModel", { backendNodeId });
+            if (!model || !model.content) return;
+
+            // Calculate coordinates
+            const x = (model.content[0] + model.content[4]) / 2;
+            const y = (model.content[1] + model.content[5]) / 2;
+            const width = Math.abs(model.content[4] - model.content[0]);
+            const height = Math.abs(model.content[5] - model.content[1]);
+
+            // Draw highlight
+            await this.connection.sendCommand("Runtime.evaluate", {
+                expression: `
+                    (function() {
+                        // Remove existing highlights
+                        const existing = document.querySelectorAll('.gemini-element-highlight');
+                        existing.forEach(el => el.remove());
+
+                        // Create highlight overlay
+                        const highlight = document.createElement('div');
+                        highlight.className = 'gemini-element-highlight';
+                        highlight.style.cssText = \`
+                            position: fixed;
+                            left: ${model.content[0]}px;
+                            top: ${model.content[1]}px;
+                            width: ${width}px;
+                            height: ${height}px;
+                            border: 3px solid #facc15;
+                            background: rgba(250, 204, 21, 0.15);
+                            border-radius: 8px;
+                            z-index: 999999;
+                            pointer-events: none;
+                            box-shadow: 0 0 20px rgba(250, 204, 21, 0.5), inset 0 0 20px rgba(250, 204, 21, 0.3);
+                            animation: gemini-pulse 0.8s ease-in-out;
+                        \`;
+
+                        // Add action label if provided
+                        ${action ? `
+                            const label = document.createElement('div');
+                            label.style.cssText = \`
+                                position: absolute;
+                                top: -36px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                background: linear-gradient(135deg, #facc15 0%, #f59e0b 100%);
+                                color: #000;
+                                padding: 6px 14px;
+                                border-radius: 6px;
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                font-size: 13px;
+                                font-weight: 600;
+                                white-space: nowrap;
+                                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+                                z-index: 1000000;
+                            \`;
+                            label.textContent = '${action.replace(/'/g, "\\'")}';
+                            highlight.appendChild(label);
+                        ` : ''}
+
+                        // Add pulse animation
+                        if (!document.getElementById('gemini-highlight-styles')) {
+                            const style = document.createElement('style');
+                            style.id = 'gemini-highlight-styles';
+                            style.textContent = \`
+                                @keyframes gemini-pulse {
+                                    0%, 100% {
+                                        transform: scale(1);
+                                        opacity: 1;
+                                    }
+                                    50% {
+                                        transform: scale(1.05);
+                                        opacity: 0.8;
+                                    }
+                                }
+                            \`;
+                            document.head.appendChild(style);
+                        }
+
+                        document.body.appendChild(highlight);
+
+                        // Auto-remove after duration
+                        setTimeout(() => {
+                            highlight.remove();
+                        }, ${duration});
+                    })()
+                `
+            });
+
+            // Small delay to let user see the highlight
+            await new Promise(r => setTimeout(r, Math.min(duration, 500)));
+        } catch (e) {
+            console.warn('[ControlOverlay] Failed to highlight element:', e.message);
+            // Don't throw - continue with action even if highlight fails
+        }
+    }
+
+    /**
+     * Clear all element highlights
+     */
+    async clearHighlights() {
+        if (!this.connection.attached) return;
+
+        try {
+            await this.connection.sendCommand("Runtime.evaluate", {
+                expression: `
+                    (function() {
+                        const highlights = document.querySelectorAll('.gemini-element-highlight');
+                        highlights.forEach(el => el.remove());
+                    })()
+                `
+            });
+        } catch (e) {
+            // Silent fail
         }
     }
 

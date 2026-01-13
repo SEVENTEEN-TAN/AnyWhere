@@ -11,12 +11,12 @@ import { WaitForHelper } from './wait_helper.js';
  * Facade class that aggregates specific action modules.
  */
 export class BrowserActions {
-    constructor(connection, snapshotManager) {
+    constructor(connection, snapshotManager, controlOverlay = null) {
         // Initialize shared WaitHelper with default multipliers (1, 1)
         this.waitHelper = new WaitForHelper(connection);
 
         this.navigation = new NavigationActions(connection, snapshotManager, this.waitHelper);
-        this.input = new InputActions(connection, snapshotManager, this.waitHelper);
+        this.input = new InputActions(connection, snapshotManager, this.waitHelper, controlOverlay);
         this.observation = new ObservationActions(connection, snapshotManager, this.waitHelper);
         this.emulation = new EmulationActions(connection, snapshotManager, this.waitHelper);
         this.performance = new PerformanceActions(connection, snapshotManager, this.waitHelper);
@@ -28,6 +28,12 @@ export class BrowserActions {
     async closePage(args) { return this.navigation.closePage(args); }
     async listPages(args) { return this.navigation.listPages(args); }
     async selectPage(args) { return this.navigation.selectPage(args); }
+
+    // P2 Enhancement: Tab stack navigation
+    async switchToTab(args) { return this.navigation.switchToTab(args); }
+    async returnToPreviousTab(args) { return this.navigation.returnToPreviousTab(args); }
+    async getTabStack(args) { return this.navigation.getTabStack(args); }
+    async clearTabStack(args) { return this.navigation.clearTabStack(args); }
 
     // --- Input Delegates ---
     async clickElement(args) { return this.input.clickElement(args); }

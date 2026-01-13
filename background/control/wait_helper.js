@@ -54,10 +54,15 @@ export class WaitForHelper {
         
         // Listener to detect navigation start and completion
         const listener = (method, params) => {
-            if (method === 'Page.frameStartedNavigating' || method === 'Page.navigatedWithinDocument') {
+            if (method === 'Page.frameStartedNavigating') {
                 navStarted = true;
             }
             if (method === 'Page.loadEventFired') {
+                navFinished = true;
+            }
+            if (method === 'Page.navigatedWithinDocument') {
+                // SPA navigation completed
+                navStarted = true;
                 navFinished = true;
             }
         };
@@ -105,16 +110,16 @@ export class WaitForHelper {
                 expression: `
                     (async () => {
                         if (!document || !document.body) return true; // Fail safe
-                        
+
                         return await new Promise((resolve) => {
                             let timer = null;
-                            
+
                             const observer = new MutationObserver(() => {
                                 // Mutation detected, reset timer
                                 if (timer) clearTimeout(timer);
                                 timer = setTimeout(done, ${tStable});
                             });
-                            
+
                             function done() {
                                 observer.disconnect();
                                 resolve(true);
@@ -126,14 +131,14 @@ export class WaitForHelper {
                                 childList: true,
                                 subtree: true
                             });
-                            
+
                             // Initial timer (resolve if no mutations happen immediately)
                             timer = setTimeout(done, ${tStable});
-                            
+
                             // Max safety timeout (resolve anyway to prevent hanging)
                             setTimeout(() => {
                                 observer.disconnect();
-                                resolve(false); 
+                                resolve(false);
                             }, ${tMax});
                         });
                     })()
@@ -144,5 +149,203 @@ export class WaitForHelper {
         } catch (e) {
             // Ignore errors if runtime context is gone (e.g. page closed or navigated away mid-script)
         }
+    }
+
+    /**
+     * Wait for a condition to be true (explicit wait)
+     * @param {Object} options - Wait options
+     * @param {string} options.expression - JavaScript expression to evaluate (should return boolean)
+     * @param {number} [options.timeout=5000] - Max time to wait in ms
+     * @param {number} [options.pollInterval=100] - Interval between checks in ms
+     * @param {Function} [options.onProgress] - Progress callback
+     * @returns {Promise<boolean>} True if condition met, false if timeout
+     */
+    async waitForCondition(options) {
+        if (!this.connection.attached) {
+            throw new Error('Cannot wait for condition: connection not attached');
+        }
+
+        const {
+            expression,
+            timeout = 5000,
+            pollInterval = 100,
+            onProgress = null
+        } = options;
+
+        if (!expression) {
+            throw new Error('waitForCondition requires expression');
+        }
+
+        const startTime = Date.now();
+        let attempts = 0;
+
+        while (Date.now() - startTime < timeout) {
+            attempts++;
+
+            try {
+                // Evaluate condition
+                let result;
+
+                if (options.objectId) {
+                    // Use callFunctionOn if objectId is provided (supports Shadow DOM/Frames)
+                    result = await this.connection.sendCommand("Runtime.callFunctionOn", {
+                        objectId: options.objectId,
+                        functionDeclaration: `function() {
+                            try {
+                                return Boolean(eval(${JSON.stringify(expression)}));
+                            } catch(e) {
+                                return false;
+                            }
+                        }`,
+                        returnByValue: true,
+                        awaitPromise: true
+                    });
+                } else {
+                    // Use standard evaluate for global expressions
+                    result = await this.connection.sendCommand("Runtime.evaluate", {
+                        expression: `(() => { try { return Boolean(${expression}); } catch(e) { return false; } })()`,
+                        returnByValue: true
+                    });
+                }
+
+                if (result?.result?.value === true) {
+                    console.log(`[WaitForHelper] Condition met after ${attempts} attempts`);
+                    return true;
+                }
+
+                // Report progress
+                if (typeof onProgress === 'function') {
+                    onProgress({
+                        attempts,
+                        elapsed: Date.now() - startTime,
+                        timeout
+                    });
+                }
+
+                // Wait before next poll
+                await new Promise(r => setTimeout(r, pollInterval));
+            } catch (err) {
+                console.warn('[WaitForHelper] Error evaluating condition:', err);
+                // Continue polling despite errors
+                await new Promise(r => setTimeout(r, pollInterval));
+            }
+        }
+
+        console.warn(`[WaitForHelper] Condition not met within ${timeout}ms`);
+        return false;
+    }
+
+    /**
+     * Wait for network to be idle (no active requests)
+     * @param {Object} options - Wait options
+     * @param {number} [options.inflightThreshold=0] - Max number of inflight requests to consider idle
+     * @param {number} [options.timeout=10000] - Max time to wait in ms
+     * @param {number} [options.idleDuration=500] - Duration of idle state to confirm
+     * @param {Function} [options.onProgress] - Progress callback
+     * @returns {Promise<boolean>} True if network idle, false if timeout
+     */
+    async waitForNetworkIdle(options = {}) {
+        if (!this.connection.attached) {
+            throw new Error('Cannot wait for network idle: connection not attached');
+        }
+
+        const {
+            inflightThreshold = 0,
+            timeout = 10000,
+            idleDuration = 500,
+            onProgress = null
+        } = options;
+
+        // Enable Network domain
+        await this.connection.sendCommand("Network.enable").catch(() => {});
+
+        let inflightRequests = 0;
+        let idleStartTime = null;
+        const startTime = Date.now();
+
+        return new Promise((resolve, reject) => {
+            let resolved = false;
+
+            // Track network requests
+            const listener = (method, params) => {
+                if (method === 'Network.requestWillBeSent') {
+                    inflightRequests++;
+                    idleStartTime = null;
+                } else if (method === 'Network.loadingFinished' || method === 'Network.loadingFailed') {
+                    inflightRequests = Math.max(0, inflightRequests - 1);
+
+                    // Check if idle
+                    if (inflightRequests <= inflightThreshold) {
+                        if (idleStartTime === null) {
+                            idleStartTime = Date.now();
+                        }
+                    } else {
+                        idleStartTime = null;
+                    }
+                }
+            };
+
+            this.connection.addListener(listener);
+
+            // Initial check - may already be idle
+            if (inflightRequests <= inflightThreshold) {
+                idleStartTime = Date.now();
+            }
+
+            // Poll for idle state
+            const checkInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+
+                // Report progress
+                if (typeof onProgress === 'function') {
+                    onProgress({
+                        inflightRequests,
+                        elapsed,
+                        timeout
+                    });
+                }
+
+                // Check timeout
+                if (elapsed >= timeout) {
+                    clearInterval(checkInterval);
+                    this.connection.removeListener(listener);
+                    if (!resolved) {
+                        resolved = true;
+                        console.warn(`[WaitForHelper] Network idle timeout after ${timeout}ms (${inflightRequests} requests)`);
+                        resolve(false);
+                    }
+                    return;
+                }
+
+                // Check if idle duration met
+                if (idleStartTime !== null && Date.now() - idleStartTime >= idleDuration) {
+                    clearInterval(checkInterval);
+                    this.connection.removeListener(listener);
+                    if (!resolved) {
+                        resolved = true;
+                        console.log(`[WaitForHelper] Network idle achieved`);
+                        resolve(true);
+                    }
+                }
+            }, 100);
+        });
+    }
+
+    /**
+     * Wrap a promise with timeout
+     * @param {Promise} promise - Promise to wrap
+     * @param {number} timeout - Timeout in ms
+     * @param {string} [errorMessage] - Custom error message
+     * @returns {Promise} Promise that rejects on timeout
+     */
+    async withTimeout(promise, timeout, errorMessage = null) {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error(errorMessage || `Operation timed out after ${timeout}ms`));
+                }, timeout);
+            })
+        ]);
     }
 }

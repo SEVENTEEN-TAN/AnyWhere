@@ -5,19 +5,73 @@
  * Handles Accessibility Tree generation and UID mapping.
  * Converts complex DOM structures into an LLM-friendly, token-efficient text tree.
  * Matches logic from Chrome DevTools MCP formatters.
+ *
+ * P1 Enhancement: Implements snapshot caching to reduce redundant AXTree generation
  */
 export class SnapshotManager {
     constructor(connection) {
         this.connection = connection;
         this.snapshotMap = new Map(); // Maps uid -> backendNodeId
         this.snapshotIdCount = 0;
-        
+
+        // P1 Enhancement: Snapshot cache
+        this.cachedSnapshot = null;
+        this.cachedSnapshotHash = null;
+        this.cacheStats = {
+            hits: 0,
+            misses: 0,
+            totalSaved: 0  // Estimated milliseconds saved
+        };
+
         // Listen to connection detach to clear state
         this.connection.onDetach(() => this.clear());
     }
 
     clear() {
         this.snapshotMap.clear();
+        this.clearCache();
+    }
+
+    /**
+     * Clear snapshot cache
+     */
+    clearCache() {
+        this.cachedSnapshot = null;
+        this.cachedSnapshotHash = null;
+    }
+
+    /**
+     * Get cache statistics
+     */
+    getCacheStats() {
+        return {
+            ...this.cacheStats,
+            hitRate: this.cacheStats.hits + this.cacheStats.misses > 0
+                ? (this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses) * 100).toFixed(1) + '%'
+                : '0%'
+        };
+    }
+
+    /**
+     * Calculate a simple hash of AXTree nodes
+     * @param {Array} nodes - Accessibility nodes
+     * @returns {string} Hash string
+     */
+    _hashAXTree(nodes) {
+        if (!nodes || nodes.length === 0) return 'empty';
+
+        // Use a subset of node properties for hashing to balance speed and accuracy
+        const significant = nodes.map(n => {
+            const roleVal = n.role?.value || '';
+            const nameVal = n.name?.value || '';
+            const childCount = n.childIds?.length || 0;
+            return `${n.nodeId}:${roleVal}:${nameVal}:${childCount}`;
+        });
+
+        // Simple hash: concatenate and get length + first/last elements
+        const str = significant.join('|');
+        const hash = `${str.length}_${significant[0]}_${significant[significant.length - 1]}`;
+        return hash;
     }
 
     getBackendNodeId(uid) {
@@ -26,14 +80,37 @@ export class SnapshotManager {
 
     async takeSnapshot(args = {}) {
         const verbose = args.verbose === true;
+        const forceRefresh = args.forceRefresh === true;  // P1: Option to bypass cache
+
+        const startTime = Date.now();
 
         // Ensure domains are enabled
         await this.connection.sendCommand("DOM.enable");
         await this.connection.sendCommand("Accessibility.enable");
-        
+
         // Get the full accessibility tree from CDP
         const { nodes } = await this.connection.sendCommand("Accessibility.getFullAXTree");
-        
+
+        // P1 Enhancement: Check cache before processing
+        if (!forceRefresh && this.cachedSnapshot && this.cachedSnapshotHash) {
+            const currentHash = this._hashAXTree(nodes);
+
+            if (currentHash === this.cachedSnapshotHash) {
+                // Cache hit! Return cached snapshot
+                this.cacheStats.hits++;
+                const elapsedTime = Date.now() - startTime;
+                this.cacheStats.totalSaved += (250 - elapsedTime);  // Assume ~250ms for full generation
+
+                console.log(`[SnapshotManager] Cache HIT (${this.cacheStats.hits} hits, saved ~${this.cacheStats.totalSaved}ms total)`);
+
+                return this.cachedSnapshot;
+            }
+        }
+
+        // Cache miss - need to generate snapshot
+        this.cacheStats.misses++;
+        console.log(`[SnapshotManager] Cache MISS (generating new snapshot...)`);
+
         // Setup new snapshot ID generation
         this.snapshotIdCount++;
         const currentSnapshotPrefix = this.snapshotIdCount;
@@ -113,7 +190,7 @@ export class SnapshotManager {
                 let role = getVal(node.role);
                 // Label ignored nodes in verbose mode (in non-verbose they are skipped)
                 if (node.ignored) role = 'ignored';
-                
+
                 const name = getVal(node.name);
                 let value = getVal(node.value);
                 const description = getVal(node.description);
@@ -124,6 +201,12 @@ export class SnapshotManager {
                 }
 
                 let parts = [`uid=${uid}`];
+
+                // P4 Enhancement: Include Frame ID if present
+                if (node.frameId) {
+                    parts.push(`frameId=${node.frameId}`);
+                }
+
                 if (role) parts.push(role);
                 if (name) parts.push(escapeStr(name));
                 if (value) parts.push(`value=${escapeStr(value)}`);
@@ -177,6 +260,14 @@ export class SnapshotManager {
         };
 
         const snapshotText = formatNode(root);
+
+        // P1 Enhancement: Update cache after successful generation
+        this.cachedSnapshot = snapshotText;
+        this.cachedSnapshotHash = this._hashAXTree(nodes);
+
+        const elapsedTime = Date.now() - startTime;
+        console.log(`[SnapshotManager] Snapshot generated in ${elapsedTime}ms (cached for future use)`);
+
         return snapshotText;
     }
 }

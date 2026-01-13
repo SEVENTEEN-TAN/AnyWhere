@@ -6,9 +6,9 @@ import { KeyboardActions } from './input/keyboard.js';
 import { FileActions } from './input/file.js';
 
 export class InputActions extends BaseActionHandler {
-    constructor(connection, snapshotManager, waitHelper) {
+    constructor(connection, snapshotManager, waitHelper, controlOverlay = null) {
         super(connection, snapshotManager, waitHelper);
-        this.mouse = new MouseActions(connection, snapshotManager, waitHelper);
+        this.mouse = new MouseActions(connection, snapshotManager, waitHelper, controlOverlay);
         this.keyboard = new KeyboardActions(connection, snapshotManager, waitHelper);
         this.file = new FileActions(connection, snapshotManager, waitHelper);
     }
