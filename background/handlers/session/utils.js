@@ -196,9 +196,29 @@ export async function getActiveTabContent() {
                         }
 
                         await autoScrollFallback();
+
+                        // Get full text content
                         let text = document.body ? document.body.innerText : "";
+
+                        // Apply line-level deduplication for virtual scrolling pages
+                        // This prevents duplicate content in SPAs with dynamic DOM updates
+                        const lines = text.split('\n');
+                        const seen = new Set();
+                        const uniqueLines = lines.filter(line => {
+                            const trimmed = line.trim();
+                            // Keep short lines (headers, separators, etc.)
+                            if (trimmed.length < 20) return true;
+                            // Deduplicate longer lines
+                            if (seen.has(trimmed)) return false;
+                            seen.add(trimmed);
+                            return true;
+                        });
+                        text = uniqueLines.join('\n');
+
+                        // Clean up excessive newlines
                         text = text.replace(/\n{3,}/g, '\n\n');
-                        console.log(`[AutoScroll-Fallback] 📄 Captured ${text.length} characters`);
+
+                        console.log(`[AutoScroll-Fallback] 📄 Captured ${text.length} characters (after deduplication)`);
                         return text;
                     }
                 });

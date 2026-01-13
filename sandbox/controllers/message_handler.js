@@ -4,6 +4,22 @@ import { appendMessage } from '../render/message.js';
 import { cropImage } from '../../lib/crop_utils.js';
 import { t } from '../core/i18n.js';
 import { WatermarkRemover } from '../../lib/watermark_remover.js';
+import { promptTemplates } from '../prompts/summarize.js';
+
+/**
+ * ✅ P1: 添加超时保护机制
+ * @param {Promise} promise - 要执行的 Promise
+ * @param {number} timeoutMs - 超时时间（毫秒）
+ * @returns {Promise} - 带超时保护的 Promise
+ */
+function promiseWithTimeout(promise, timeoutMs = 5000) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+        )
+    ]);
+}
 
 export class MessageHandler {
     constructor(sessionManager, uiController, imageManager, appController) {
@@ -125,10 +141,15 @@ export class MessageHandler {
         this.showToolPicker(tools);
     }
 
+    // ✅ P0 修复: 使用 AbortController 管理事件监听器，防止内存泄漏
     showToolPicker(tools) {
         const modalId = 'mcp-tool-picker';
         let modal = document.getElementById(modalId);
-        if (modal) modal.remove();
+        if (modal) {
+            // 清理旧的事件监听器
+            modal._abortController?.abort();
+            modal.remove();
+        }
 
         modal = document.createElement('div');
         modal.id = modalId;
@@ -141,6 +162,11 @@ export class MessageHandler {
         content.style.maxHeight = '80vh';
         content.style.display = 'flex';
         content.style.flexDirection = 'column';
+
+        // 创建 AbortController 管理事件监听器
+        const abortController = new AbortController();
+        modal._abortController = abortController;
+        const { signal } = abortController;
 
         // Header
         const header = document.createElement('div');
@@ -196,20 +222,30 @@ export class MessageHandler {
         modal.appendChild(content);
         document.body.appendChild(modal);
 
-        // Event Listeners
+        // Event Listeners (使用 signal 自动清理)
         const confirmBtn = modal.querySelector('#mcp-confirm-btn');
-        confirmBtn.onclick = () => {
+        confirmBtn.addEventListener('click', () => {
             const checkboxes = body.querySelectorAll('input[type="checkbox"]:checked');
             const selectedTools = Array.from(checkboxes).map(cb => tools[cb.value]);
 
             if (selectedTools.length > 0) {
                 this.injectTools(selectedTools);
             }
+            abortController.abort();  // 清理所有监听器
             modal.remove();
-        };
+        }, { signal });
 
-        modal.querySelector('.close-pc').onclick = () => modal.remove();
-        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+        modal.querySelector('.close-pc').addEventListener('click', () => {
+            abortController.abort();
+            modal.remove();
+        }, { signal });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                abortController.abort();
+                modal.remove();
+            }
+        }, { signal });
     }
 
     // Legacy method - kept for backwards compatibility but no longer injects text
@@ -340,11 +376,14 @@ ${request.error}`;
         if (img) {
             if (request.base64) {
                 try {
-                    // Apply Watermark Removal
-                    const cleanedBase64 = await WatermarkRemover.process(request.base64);
+                    // ✅ P1: 添加超时保护（5秒）
+                    const cleanedBase64 = await promiseWithTimeout(
+                        WatermarkRemover.process(request.base64),
+                        5000
+                    );
                     img.src = cleanedBase64;
                 } catch (e) {
-                    console.warn("Watermark removal failed, using original", e);
+                    console.warn("Watermark removal failed or timed out, using original", e);
                     img.src = request.base64;
                 }
 
@@ -455,31 +494,31 @@ ${request.error}`;
         }
     }
 
+    // ✅ P2: 使用配置文件替代硬编码模板
     async executeSummarize(content) {
         // Get tab info for display
         const { title, url } = await this.app.getActiveTabInfo();
+        
+        // Get language setting (use navigator.language in sandbox environment)
+        const lang = (navigator.language || 'en').startsWith('zh') ? 'zh' : 'en';
+        const template = promptTemplates.summarize[lang];
+        
+        // Build prompt from template
+        const structureText = `${template.structure.title}\n${template.structure.items.join('\n')}`;
+        const formatText = `${template.format.title}\n${template.format.items.join('\n')}`;
+        const requirementsText = `${template.requirements.title}\n${template.requirements.items.join('\n')}`;
+        
+        const prompt = `${template.instruction}
 
-        const prompt = `请对以下内容进行全面而深入的总结分析：
+${structureText}
 
-**输出结构**:
-1. **核心摘要** - 简明扼要概括要点（100-200字）
-2. **思维导图** - 用 \`\`\`markmap 代码块可视化内容结构
-3. **深度解析** - 充分展开论述，用标题和段落组织，突出重点、数据和案例
-4. **总结与追问** - 提炼洞察，并生成 3 个追问建议
+${formatText}
 
-**格式说明**:
-- 使用 Markdown 标题层级（\`###\` 或 \`####\`）组织内容
-- Markmap 格式：根节点 \`#\`，子节点 \`##\`，要点 \`-\`，层级不超过 3 层
-- 追问格式：\`<suggestions>["问题1", "问题2", "问题3"]</suggestions>\`
+${requirementsText}
 
-**内容要求**:
-- 重点突出核心观点、关键数据和实际价值
-- 深度解析部分要充分展开，避免简单罗列
-- 追问要具体、实用，侧重应用/原理/细节
+${template.separator}
 
----
-
-以下是需要总结的内容：
+${template.content_prefix}
 
 ${content}`;
 
@@ -488,8 +527,8 @@ ${content}`;
         const linkText = title && url ? `${displayTitle}${displayUrl}` : (title || 'Selected Content');
 
         this.app.prompt.executePrompt(prompt, [], {
-            includePageContext: false, // Content already included in prompt
-            displayPrompt: `总结 ${linkText}`,
+            includePageContext: false,
+            displayPrompt: `${template.display_prefix} ${linkText}`,
             sessionTitle: title || 'Summary'
         });
     }

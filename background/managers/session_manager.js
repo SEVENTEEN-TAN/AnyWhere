@@ -2,12 +2,15 @@
 // background/managers/session_manager.js
 import { sendGeminiMessage } from '../../services/gemini_api.js';
 import { AuthManager } from './auth_manager.js';
+import { ResponseCache } from '../../lib/response_cache.js';
 
 export class GeminiSessionManager {
     constructor() {
         this.auth = new AuthManager();
         this.abortController = null;
         this.mcpManager = null;
+        // ✅ P2: 添加响应缓存（最多缓存 50 条）
+        this.cache = new ResponseCache(50);
     }
 
     setMCPManager(manager) {
@@ -19,6 +22,14 @@ export class GeminiSessionManager {
     }
 
     async handleSendPrompt(request, onUpdate) {
+        // ✅ P2: 尝试从缓存获取（仅限无文件的请求）
+        if (!request.files || request.files.length === 0) {
+            const cached = this.cache.get(request);
+            if (cached) {
+                return cached;
+            }
+        }
+        
         // Cancel previous if exists
         this.cancelCurrentRequest();
 
@@ -68,51 +79,18 @@ export class GeminiSessionManager {
                     request.gemId // Pass Gem ID
                 );
 
-                // --- MCP EXECUTION LOOP (Simple 1-turn) ---
-                // Check if response contains tool call
-                const toolCall = this.parseToolCall(response.text);
-                if (toolCall && this.mcpManager) {
-                    try {
-                        if (onUpdate) onUpdate({
-                            action: "GEMINI_STREAM",
-                            text: response.text + `\n\n> ⚙️ Executing tool: ${toolCall.tool}...`
-                        });
-
-                        const result = await this.mcpManager.executeTool(toolCall.tool, toolCall.args);
-                        const resultText = `Tool Result (${toolCall.tool}):\n${JSON.stringify(result, null, 2)}`;
-
-                        // Feed back to Gemini
-                        // We need to update context from the first response first
-                        await this.auth.updateContext(response.newContext, request.model);
-                        const nextContext = await this.auth.getOrFetchContext(); // Should be the updated one
-
-                        response = await sendGeminiMessage(
-                            resultText,
-                            nextContext,
-                            request.model,
-                            [],
-                            signal,
-                            onUpdate,
-                            request.gemId // Pass Gem ID
-                        );
-
-                    } catch (e) {
-                        console.error("MCP Execution Error", e);
-                        if (onUpdate) onUpdate({
-                            action: "GEMINI_STREAM",
-                            text: response.text + `\n\n> ❌ Tool Error: ${e.message}`
-                        });
-                        // Continue with original response if tool fails? Or let the error stand?
-                        // Let's just append the error to the response text so the user sees it.
-                        response.text += `\n\n> ❌ Tool execution failed: ${e.message}`;
-                    }
-                }
-                // ------------------------------------------
+                // ✅ P2: MCP 多轮工具调用支持
+                response = await this._handleToolCallChain(
+                    response,
+                    request,
+                    signal,
+                    onUpdate
+                );
 
                 // Success!
                 await this.auth.updateContext(response.newContext, request.model);
 
-                return {
+                const result = {
                     action: "GEMINI_REPLY",
                     text: response.text,
                     thoughts: response.thoughts,
@@ -121,6 +99,13 @@ export class GeminiSessionManager {
                     status: "success",
                     context: response.newContext
                 };
+                
+                // ✅ P2: 缓存响应（仅限无文件的请求）
+                if (!request.files || request.files.length === 0) {
+                    this.cache.set(request, result);
+                }
+                
+                return result;
 
             } catch (err) {
                 throw err; // Throw to outer catch
@@ -196,40 +181,91 @@ export class GeminiSessionManager {
         await this.auth.resetContext();
     }
 
+    /**
+     * ✅ P2: 处理多轮工具调用链
+     * @private
+     */
+    async _handleToolCallChain(response, request, signal, onUpdate) {
+        const MAX_ITERATIONS = 5; // 防止无限循环
+        let currentResponse = response;
+        let iteration = 0;
+        
+        while (iteration < MAX_ITERATIONS) {
+            const toolCall = this.parseToolCall(currentResponse.text);
+            if (!toolCall || !this.mcpManager) {
+                break; // 没有工具调用或 MCP 不可用
+            }
+            
+            iteration++;
+            console.log(`[SessionManager] Tool call iteration ${iteration}/${MAX_ITERATIONS}`);
+            
+            try {
+                // 通知用户工具执行
+                if (onUpdate) onUpdate({
+                    action: "GEMINI_STREAM",
+                    text: currentResponse.text + `\n\n> ⚙️ [${iteration}] Executing: ${toolCall.tool}...`
+                });
+                
+                // 执行工具
+                const result = await this.mcpManager.executeTool(toolCall.tool, toolCall.args);
+                const resultText = `Tool Result (${toolCall.tool}):\n${JSON.stringify(result, null, 2)}`;
+                
+                // 更新上下文
+                await this.auth.updateContext(currentResponse.newContext, request.model);
+                const nextContext = await this.auth.getOrFetchContext();
+                
+                // 继续对话
+                currentResponse = await sendGeminiMessage(
+                    resultText,
+                    nextContext,
+                    request.model,
+                    [],
+                    signal,
+                    onUpdate,
+                    request.gemId
+                );
+                
+            } catch (e) {
+                console.error(`[SessionManager] Tool execution error (iteration ${iteration}):`, e);
+                if (onUpdate) onUpdate({
+                    action: "GEMINI_STREAM",
+                    text: currentResponse.text + `\n\n> ❌ Tool Error: ${e.message}`
+                });
+                currentResponse.text += `\n\n> ❌ Tool execution failed: ${e.message}`;
+                break; // 错误时终止链
+            }
+        }
+        
+        if (iteration >= MAX_ITERATIONS) {
+            console.warn('[SessionManager] Max tool call iterations reached');
+            currentResponse.text += '\n\n> ⚠️ Max tool call iterations reached. Stopping.';
+        }
+        
+        return currentResponse;
+    }
+
+    // ✅ P0 优化: 单次扫描 + 早期返回，减少正则回溯和重复解析
     parseToolCall(text) {
-        if (!text) return null;
-
-        // Pattern 1: Look for ```json ... ``` blocks containing "action": "call_tool"
-        const codeBlockRegex = /```json\s*(\{[\s\S]*?\})\s*```/g;
-        let match;
-        while ((match = codeBlockRegex.exec(text)) !== null) {
-            try {
-                const json = JSON.parse(match[1]);
-                if (json.action === "call_tool" && json.tool) {
-                    return { tool: json.tool, args: json.args || {} };
-                }
-            } catch (e) {
-                // Ignore invalid JSON
-            }
+        if (!text || typeof text !== 'string') return null;
+        
+        // 1. 快速路径：查找关键字
+        if (!text.includes('call_tool')) return null;
+        
+        // 2. 尝试代码块（最常见）
+        const codeMatch = /```json\s*(\{[\s\S]*?\})\s*```/.exec(text);
+        if (codeMatch) {
+            const result = this._parseToolJson(codeMatch[1]);
+            if (result) return result;
         }
-
-        // Pattern 2: Look for bare JSON object (not in code block)
-        // Match from first { to last } that contains "action": "call_tool"
-        const bareJsonRegex = /\{[^{}]*"action"\s*:\s*"call_tool"[^{}]*\}/g;
-        while ((match = bareJsonRegex.exec(text)) !== null) {
-            try {
-                const json = JSON.parse(match[0]);
-                if (json.action === "call_tool" && json.tool) {
-                    return { tool: json.tool, args: json.args || {} };
-                }
-            } catch (e) {
-                // Try to find a larger JSON by scanning for balanced braces
-                // This is a simplistic approach - for complex nested objects we'd need a proper parser
-            }
+        
+        // 3. 尝试裸 JSON
+        const jsonMatch = /\{[^{}]*"action"\s*:\s*"call_tool"[^{}]*\}/.exec(text);
+        if (jsonMatch) {
+            const result = this._parseToolJson(jsonMatch[0]);
+            if (result) return result;
         }
-
-        // Pattern 3: Try to extract any JSON-like structure with "call_tool"
-        // More aggressive: find opening brace and try to parse until closing brace
+        
+        // 4. 最后尝试：手动匹配括号
         const jsonStartIndex = text.indexOf('{"action":"call_tool"') !== -1
             ? text.indexOf('{"action":"call_tool"')
             : text.indexOf('{"action": "call_tool"');
@@ -246,17 +282,27 @@ export class GeminiSessionManager {
                 }
             }
 
-            try {
-                const jsonStr = text.substring(jsonStartIndex, endIndex);
-                const json = JSON.parse(jsonStr);
-                if (json.action === "call_tool" && json.tool) {
-                    return { tool: json.tool, args: json.args || {} };
-                }
-            } catch (e) {
-                // Final fallback failed
-            }
+            const jsonStr = text.substring(jsonStartIndex, endIndex);
+            const result = this._parseToolJson(jsonStr);
+            if (result) return result;
         }
+        
+        return null;
+    }
 
+    /**
+     * 解析工具调用 JSON
+     * @private
+     */
+    _parseToolJson(jsonStr) {
+        try {
+            const json = JSON.parse(jsonStr);
+            if (json.action === "call_tool" && json.tool) {
+                return { tool: json.tool, args: json.args || {} };
+            }
+        } catch (e) {
+            console.warn('[SessionManager] Failed to parse tool call JSON:', e.message);
+        }
         return null;
     }
 }

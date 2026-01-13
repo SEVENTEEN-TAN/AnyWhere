@@ -22,11 +22,14 @@ export class PromptBuilder {
                     : 500000;
 
                 if (limit > 0 && pageContent.length > limit) {
-                    console.log(`[PromptBuilder] Configured Limit: ${limit}, Actual: ${pageContent.length}. Truncating...`);
-                    // Keep the Last N chars (usually most relevant for reading bottom-up or recent context)
-                    // Or first N? Usually Start fits better for "Read this article".
-                    // Let's keep Start for now as it contains headers/intros.
-                    pageContent = pageContent.slice(0, limit) + `\n\n[...Truncated due to limit ${limit}...]`;
+                    console.log(`[PromptBuilder] Context exceeds limit. Original: ${pageContent.length}, Limit: ${limit}`);
+
+                    // Keep the LAST N chars (most recent scrolled content)
+                    // This ensures users see content they scrolled to, not just the page header
+                    const truncated = pageContent.slice(-limit);
+                    pageContent = `[...Content truncated from start. Showing last ${limit} characters...]\n\n${truncated}`;
+
+                    console.log(`[PromptBuilder] After truncation: ${pageContent.length} chars`);
                 }
 
                 console.log(`[PromptBuilder] 成功获取网页上下文 (长度: ${pageContent.length}):\n${pageContent}`);

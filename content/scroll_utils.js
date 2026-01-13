@@ -160,14 +160,21 @@
 
     /**
      * Generate a fingerprint for content deduplication
+     * Uses three-point sampling (head, middle, tail) for better accuracy
      * @param {string} text - The text content
      * @returns {string} - A fingerprint string
      */
     function generateFingerprint(text) {
         if (!text || text.length === 0) return '';
-        // Use first 100 chars + length as fingerprint
-        const prefix = text.slice(0, 100).trim();
-        return `${prefix.length}:${text.length}:${prefix}`;
+
+        // Sample three positions: head, middle, tail
+        // This prevents false positives from repeated prefixes (e.g., list items, quotes)
+        const head = text.slice(0, 50).trim();
+        const midPoint = Math.floor(text.length / 2);
+        const mid = text.slice(midPoint, midPoint + 50).trim();
+        const tail = text.slice(-50).trim();
+
+        return `${text.length}:${head}:${mid}:${tail}`;
     }
 
     /**

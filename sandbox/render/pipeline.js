@@ -1,6 +1,21 @@
 
 // sandbox/render/pipeline.js
 import { MathHandler } from './math_utils.js';
+import { PerformanceMonitor } from '../../lib/performance_monitor.js';
+
+/**
+ * Escapes HTML entities to prevent XSS attacks
+ * @param {string} text - Text to escape
+ * @returns {string} - Escaped HTML string
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ✅ P1 优化: 复用 MathHandler 单例，避免重复创建
+const mathHandler = new MathHandler();
 
 /**
  * Transforms raw text into HTML with Math placeholders protected/restored.
@@ -8,6 +23,9 @@ import { MathHandler } from './math_utils.js';
  * @returns {string} - HTML string
  */
 export function transformMarkdown(text) {
+    // ✅ P1: 添加性能监控
+    PerformanceMonitor.mark('markdown-render-start');
+    
     // Handle case where text is an object (e.g., message object passed by mistake)
     if (text && typeof text === 'object') {
         if (typeof text.text === 'string') {
@@ -29,7 +47,7 @@ export function transformMarkdown(text) {
         return text;
     }
 
-    const mathHandler = new MathHandler();
+    // (mathHandler 已在模块级别创建)
 
     // 1. Protect Math blocks first (before any other processing)
     let processedText = mathHandler.protect(text || '');
@@ -50,15 +68,18 @@ export function transformMarkdown(text) {
     // Configure marked to use highlight.js for code blocks
     let html = marked.parse(processedText, {
         highlight: function(code, lang) {
+            // ✅ P0 修复: 转义 HTML 防止 XSS 攻击
             // Support 'markmap' language - keep it raw for the Markmap Loader to handle
             if (lang === 'markmap') {
-                // Ensure we don't double-escape, marked might escape inside code blocks
-                // We return a special div that our post-processor or loader will find
-                return `<div class="markmap-source" style="display:none;">${code}</div><div class="markmap-container"></div>`;
+                // Escape HTML entities to prevent XSS
+                const escapedCode = escapeHtml(code);
+                return `<div class="markmap-source" style="display:none;">${escapedCode}</div><div class="markmap-container"></div>`;
             }
             // Support 'mermaid' language - keep it raw for the Mermaid Loader to handle
             if (lang === 'mermaid') {
-                return `<div class="mermaid">${code}</div>`;
+                // Escape HTML entities to prevent XSS
+                const escapedCode = escapeHtml(code);
+                return `<div class="mermaid">${escapedCode}</div>`;
             }
             if (typeof hljs !== 'undefined') {
                 const language = hljs.getLanguage(lang) ? lang : 'plaintext';
@@ -70,6 +91,10 @@ export function transformMarkdown(text) {
 
     // 4. Restore Math blocks
     html = mathHandler.restore(html);
+    
+    // ✅ P1: 性能监控结束
+    PerformanceMonitor.mark('markdown-render-end');
+    PerformanceMonitor.measure('markdown-render', 'markdown-render-start', 'markdown-render-end');
 
     return html;
 }
