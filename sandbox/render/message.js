@@ -3,6 +3,7 @@ import { renderContent } from './content.js';
 import { copyToClipboard } from './clipboard.js';
 import { createGeneratedImage } from './generated_image.js';
 import { loadMarkmap } from '../libs/markmap-loader.js';
+import { parseThinkingContent } from '../lib/thinking_parser.js';
 
 
 // Appends a message to the chat history and returns an update controller
@@ -17,9 +18,25 @@ export function appendMessage(container, text, role, attachment = null, thoughts
     const div = document.createElement('div');
     div.className = `msg ${role}`;
 
+    // Parse embedded thinking tags from text (for AI messages)
+    let parsedThinking = '';
+    let parsedContent = text || "";
+
+    if (role === 'ai' && parsedContent) {
+        const parsed = parseThinkingContent(parsedContent);
+        parsedThinking = parsed.thinking;
+        parsedContent = parsed.content;
+    }
+
     // Store current text state
-    let currentText = text || "";
+    let currentText = parsedContent;
+    // Merge API-provided thoughts with parsed thinking tags
     let currentThoughts = thoughts || "";
+    if (parsedThinking) {
+        currentThoughts = currentThoughts
+            ? `${currentThoughts}\n\n---\n\n${parsedThinking}`
+            : parsedThinking;
+    }
     let currentMcpIds = mcpIds || [];
     let currentModel = model || "";
     let currentGemName = gemName || "";
@@ -277,16 +294,42 @@ export function appendMessage(container, text, role, attachment = null, thoughts
         div,
         update: (newText, newThoughts) => {
             if (newText !== undefined) {
-                currentText = newText;
+                // Parse thinking tags from streaming text (for AI messages)
+                if (role === 'ai') {
+                    const parsed = parseThinkingContent(newText);
+                    currentText = parsed.content;
+
+                    // Merge with API-provided thoughts
+                    if (parsed.thinking) {
+                        const apiThoughts = newThoughts || "";
+                        currentThoughts = apiThoughts
+                            ? `${apiThoughts}\n\n---\n\n${parsed.thinking}`
+                            : parsed.thinking;
+
+                        // Update thinking display
+                        if (thoughtsContent && currentThoughts) {
+                            renderContent(thoughtsContent, currentThoughts, 'ai');
+                            if (thoughtsDiv) {
+                                thoughtsDiv.style.display = 'block';
+                            }
+                        }
+                    } else if (newThoughts !== undefined) {
+                        currentThoughts = newThoughts;
+                    }
+                } else {
+                    currentText = newText;
+                    if (newThoughts !== undefined) {
+                        currentThoughts = newThoughts;
+                    }
+                }
 
                 if (contentDiv) {
                     renderContent(contentDiv, currentText, role);
                     // Process DOM again after update
                     processRenderedContent(contentContainer, contentDiv);
                 }
-            }
-
-            if (newThoughts !== undefined && thoughtsContent) {
+            } else if (newThoughts !== undefined && thoughtsContent) {
+                // Only thoughts update (no text change)
                 currentThoughts = newThoughts;
                 renderContent(thoughtsContent, currentThoughts || "", 'ai');
                 if (currentThoughts) {

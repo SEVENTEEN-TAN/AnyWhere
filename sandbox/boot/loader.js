@@ -31,15 +31,12 @@ export async function loadLibs() {
         loadCSS('vendor/katex.min.css');
         loadCSS('vendor/atom-one-dark.min.css');
 
+        // Load independent libraries in parallel
         Promise.all([
             loadScript('vendor/highlight.min.js'),
             loadScript('vendor/katex.min.js'),
-            loadScript('vendor/fuse.basic.min.js'),
-            // Load Markmap libraries from local vendor (CSP compliant)
-            loadScript('vendor/d3.js'),
-            loadScript('vendor/markmap-view.js'),
-            loadScript('vendor/markmap-lib.js')
-        ]).then(() => {
+            loadScript('vendor/fuse.basic.min.js')
+        ]).then(async () => {
             // Wrap KaTeX to always use strict: false (suppress Unicode warnings)
             if (window.katex && window.katex.renderToString) {
                 const originalRender = window.katex.renderToString.bind(window.katex);
@@ -49,7 +46,24 @@ export async function loadLibs() {
                 console.log("[KaTeX] Wrapped renderToString with strict: false");
             }
             // Auto-render ext for Katex
-            return loadScript('vendor/auto-render.min.js');
+            await loadScript('vendor/auto-render.min.js');
+
+            // CRITICAL: Load Markmap libraries in STRICT ORDER (they have dependencies)
+            // 1. D3 first (markmap-view depends on it)
+            console.log("[Loader] Loading D3...");
+            await loadScript('vendor/d3.js');
+            console.log("[Loader] D3 loaded:", typeof window.d3);
+
+            // 2. Markmap-lib (creates window.markmap namespace)
+            console.log("[Loader] Loading Markmap-lib...");
+            await loadScript('vendor/markmap-lib.js');
+            console.log("[Loader] Markmap-lib loaded:", typeof window.markmap);
+
+            // 3. Markmap-view last (extends window.markmap, uses d3)
+            console.log("[Loader] Loading Markmap-view...");
+            await loadScript('vendor/markmap-view.js');
+            console.log("[Loader] Markmap-view loaded");
+            console.log("[Loader] Markmap.Markmap:", window.markmap ? typeof window.markmap.Markmap : 'N/A');
         }).catch(e => console.warn("Optional libs load failed", e));
 
         console.log("Lazy dependencies loaded from local vendor.");
