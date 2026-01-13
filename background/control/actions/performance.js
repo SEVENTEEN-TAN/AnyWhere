@@ -43,7 +43,7 @@ export class PerformanceActions extends BaseActionHandler {
         }
     }
 
-    async stopTrace() {
+    async stopTrace(args = {}) {
         if (!this.isRunning) {
             return "Error: No trace is currently running.";
         }

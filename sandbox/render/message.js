@@ -617,7 +617,8 @@ function hideTextInDOM(root, textToRemove) {
             n.textContent = n.textContent.replace(textToRemove, '');
             // If parent is now empty, hide it (e.g. empty <p>)
             if (!n.textContent.trim() && n.parentNode && n.parentNode !== root) {
-                n.parentNode.style.display = 'none';
+                // Type assertion: parentNode is HTMLElement when it has style property
+                /** @type {HTMLElement} */ (n.parentNode).style.display = 'none';
             }
             return; // Found and removed
         }
@@ -633,7 +634,8 @@ function hideTextInDOM(root, textToRemove) {
             if (el.textContent.includes('<suggestions>') || el.textContent.includes('[') && el.textContent.includes(']')) {
                 // Heuristic: if it looks like the suggestion block
                 if (el.textContent.length < textToRemove.length + 20) {
-                    el.style.display = 'none';
+                    // Type assertion: el is HTMLElement when it has style property
+                    /** @type {HTMLElement} */ (el).style.display = 'none';
                 }
             }
         });

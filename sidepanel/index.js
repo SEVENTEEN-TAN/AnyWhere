@@ -1,8 +1,10 @@
 
 // sidepanel/index.js - Bridge between Sandbox and Background
 
-const iframe = document.getElementById('sandbox-frame');
-const skeleton = document.getElementById('skeleton');
+/** @type {HTMLIFrameElement} */
+const iframe = /** @type {HTMLIFrameElement} */ (document.getElementById('sandbox-frame'));
+/** @type {HTMLElement} */
+const skeleton = /** @type {HTMLElement} */ (document.getElementById('skeleton'));
 
 // --- Optimization: 1. Instant Load (Sync) ---
 // We use localStorage for Theme/Lang to avoid waiting for async chrome.storage

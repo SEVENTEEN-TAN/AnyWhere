@@ -1,9 +1,12 @@
 
 // background/menus.js
+/**
+ * @typedef {import('./managers/image_manager.js').ImageManager} ImageManager
+ */
 
 /**
  * Initializes Context Menus and attaches the click listener.
- * @param {ImageHandler} imageHandler - Instance of the ImageHandler.
+ * @param {ImageManager} imageHandler - Instance of the ImageManager.
  */
 export function setupContextMenus(imageHandler) {
     

@@ -6,6 +6,17 @@
  * Extends UID-based selection with more flexible query methods
  */
 
+/**
+ * @typedef {Object} ElementInfo
+ * @property {string} [uid] - Element unique ID
+ * @property {string} [role] - Element role
+ * @property {string} [name] - Element name
+ * @property {string} [text] - Element text content
+ * @property {string} [tag] - Element tag name
+ * @property {boolean} [visible] - Element visibility
+ * @property {string} [error] - Error message if query failed
+ */
+
 export class SelectorEngine {
     constructor(connection, snapshotManager) {
         this.connection = connection;
@@ -15,7 +26,7 @@ export class SelectorEngine {
     /**
      * Find elements by CSS selector
      * @param {string} selector - CSS selector
-     * @returns {Promise<Array<{uid, role, name, ...}>>}
+     * @returns {Promise<ElementInfo[] | {error: string}>}
      */
     async findByCssSelector(selector) {
         try {
@@ -45,7 +56,7 @@ export class SelectorEngine {
     /**
      * Find elements by XPath
      * @param {string} xpath - XPath expression
-     * @returns {Promise<Array<{uid, role, name, ...}>>}
+     * @returns {Promise<ElementInfo[] | {error: string}>}
      */
     async findByXPath(xpath) {
         try {
@@ -84,7 +95,7 @@ export class SelectorEngine {
      * Find elements by text content (fuzzy matching)
      * @param {string} text - Text to search for
      * @param {object} options - { exact, contains, fuzzy }
-     * @returns {Promise<Array>}
+     * @returns {Promise<ElementInfo[] | {error: string}>}
      */
     async findByText(text, options = {}) {
         const { exact = false, contains = false } = options;
@@ -135,7 +146,7 @@ export class SelectorEngine {
     /**
      * Find element by accessibility properties
      * @param {object} props - { name, role, label }
-     * @returns {Promise<Array>}
+     * @returns {Promise<ElementInfo[] | {error: string}>}
      */
     async findByAccessibility(props) {
         try {
@@ -177,7 +188,7 @@ export class SelectorEngine {
      * Generate CSS/XPath selectors for a given element UID
      * Useful for converting UID-based results back to standard selectors
      * @param {string} uid - Element UID
-     * @returns {Promise<{css: string, xpath: string}>}
+     * @returns {Promise<{css: string, xpath: string} | {error: string}>}
      */
     async generateSelectors(uid) {
         const backendNodeId = this.snapshotManager.getBackendNodeId(uid);

@@ -17,7 +17,9 @@ export class PromptBuilder {
             if (pageContent) {
                 // Apply Context Limit
                 const settings = await chrome.storage.local.get('geminiContextLimit');
-                const limit = settings.geminiContextLimit !== undefined ? parseInt(settings.geminiContextLimit) : 500000;
+                const limit = typeof settings.geminiContextLimit !== 'undefined'
+                    ? parseInt(String(settings.geminiContextLimit))
+                    : 500000;
 
                 if (limit > 0 && pageContent.length > limit) {
                     console.log(`[PromptBuilder] Configured Limit: ${limit}, Actual: ${pageContent.length}. Truncating...`);

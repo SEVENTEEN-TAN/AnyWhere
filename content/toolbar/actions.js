@@ -130,7 +130,6 @@ class ToolbarActions {
         const msg = {
             action: "QUICK_ASK",
             text: prompt,
-            text: prompt,
             model: model,
             gemId: gemId
         };

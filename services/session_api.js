@@ -20,7 +20,7 @@ export async function deleteSessionFromServer(conversationId, userIndex = '0') {
             'source-path': userIndex === '0' ? '/app' : `/u/${userIndex}/app`,
             'bl': auth.blValue || 'boq_assistant-bard-web-server_20251217.07_p5',
             'hl': 'zh-CN',
-            '_reqid': Math.floor(Math.random() * 900000) + 100000,
+            '_reqid': String(Math.floor(Math.random() * 900000) + 100000),
             'rt': 'c'
         });
         
@@ -60,7 +60,7 @@ export async function deleteSessionFromServer(conversationId, userIndex = '0') {
             'source-path': userIndex === '0' ? '/app' : `/u/${userIndex}/app`,
             'bl': auth.blValue || 'boq_assistant-bard-web-server_20251217.07_p5',
             'hl': 'zh-CN',
-            '_reqid': Math.floor(Math.random() * 900000) + 100000,
+            '_reqid': String(Math.floor(Math.random() * 900000) + 100000),
             'rt': 'c'
         });
         

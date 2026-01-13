@@ -170,7 +170,7 @@ function extractGemsFromData(innerData, list) {
 }
 
 function generateReqId() {
-    return Math.floor(Math.random() * 100000) + 10000;
+    return String(Math.floor(Math.random() * 100000) + 10000);
 }
 
 /**

@@ -79,8 +79,8 @@ export async function getActiveTabContent() {
             try {
                 // Get settings first
                 const settings = await chrome.storage.local.get(['geminiAutoScrollInterval', 'geminiAutoScrollMaxTime']);
-                const intervalTime = parseInt(settings.geminiAutoScrollInterval) || 200;
-                const maxTime = parseInt(settings.geminiAutoScrollMaxTime) || 15000;
+                const intervalTime = parseInt(String(settings.geminiAutoScrollInterval || 200));
+                const maxTime = parseInt(String(settings.geminiAutoScrollMaxTime || 15000));
 
                 console.log(`⚙️ 滚动设置: interval=${intervalTime}ms, maxTime=${maxTime}ms`);
                 console.log(`🔄 开始自动滚动...`);

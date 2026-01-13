@@ -45,7 +45,7 @@ export class NavigationActions extends BaseActionHandler {
         return `Closed page ${index}: ${tab.title || 'Untitled'}`;
     }
 
-    async listPages() {
+    async listPages(args = {}) {
         const tabs = await chrome.tabs.query({ currentWindow: true });
         return tabs.map((t, idx) => `${idx}: ${t.title} (${t.url})`).join("\n");
     }

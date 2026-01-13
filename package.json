@@ -20,6 +20,7 @@
     "mermaid": "^11.12.2"
   },
   "devDependencies": {
+    "@types/chrome": "^0.1.33",
     "@types/node": "^22.14.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"

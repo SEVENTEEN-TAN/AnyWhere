@@ -7,11 +7,12 @@ import { generateUUID } from '../../lib/utils.js';
  * @param {string} text - The user's prompt.
  * @param {object} result - The result object from the session manager.
  * @param {Array|object} filesObj - Optional file data { base64 } or array of such objects.
- * @returns {object} The new session object or null on error.
+ * @returns {Promise<object|null>} The new session object or null on error.
  */
 export async function saveToHistory(text, result, filesObj = null) {
     try {
-        const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
+        const storage = await chrome.storage.local.get(['geminiSessions']);
+        const geminiSessions = Array.isArray(storage.geminiSessions) ? storage.geminiSessions : [];
         
         const sessionId = generateUUID();
         // Use auto-generated title if available, otherwise fallback to user prompt
@@ -76,7 +77,8 @@ export async function saveToHistory(text, result, filesObj = null) {
  */
 export async function appendAiMessage(sessionId, result) {
     try {
-        const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
+        const storage = await chrome.storage.local.get(['geminiSessions']);
+        const geminiSessions = Array.isArray(storage.geminiSessions) ? storage.geminiSessions : [];
         const sessionIndex = geminiSessions.findIndex(s => s.id === sessionId);
         
         if (sessionIndex !== -1) {
@@ -138,7 +140,8 @@ export async function appendAiMessage(sessionId, result) {
  */
 export async function appendUserMessage(sessionId, text, images = null) {
     try {
-        const { geminiSessions = [] } = await chrome.storage.local.get(['geminiSessions']);
+        const storage = await chrome.storage.local.get(['geminiSessions']);
+        const geminiSessions = Array.isArray(storage.geminiSessions) ? storage.geminiSessions : [];
         const sessionIndex = geminiSessions.findIndex(s => s.id === sessionId);
         
         if (sessionIndex !== -1) {

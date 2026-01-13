@@ -17,19 +17,19 @@ export class FileOperations {
      */
     async initialize() {
         if (this.initialized) return;
-        
+
         try {
             const result = await chrome.storage.local.get(['geminiWorkspacePath', 'geminiWorkspacePrompt']);
-            
+
             // Check if user has set a custom workspace path
-            if (result.geminiWorkspacePath) {
+            if (typeof result.geminiWorkspacePath === 'string') {
                 this.defaultPath = result.geminiWorkspacePath;
                 console.log('[FileOps] Using custom workspace path:', this.defaultPath);
             }
-            
+
             // Check if user wants to be prompted for save location
             this.useCustomPath = result.geminiWorkspacePrompt !== false; // Default true
-            
+
             this.initialized = true;
         } catch (error) {
             console.error('[FileOps] Failed to initialize:', error);

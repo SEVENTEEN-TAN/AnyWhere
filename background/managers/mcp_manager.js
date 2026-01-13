@@ -20,12 +20,16 @@ export class MCPManager {
 
     async loadConfig() {
         const data = await chrome.storage.local.get('mcpConfig');
-        const config = data.mcpConfig || { mcpServers: {} };
+        const rawConfig = data.mcpConfig;
+        const config = (rawConfig && typeof rawConfig === 'object' && 'mcpServers' in rawConfig)
+            ? rawConfig
+            : { mcpServers: {} };
 
-        // Merge with internal state (preserving connections if config hasn't changed? 
+        // Merge with internal state (preserving connections if config hasn't changed?
         // For simplicity, we might just fully reload if called, but usually init is once)
         // Here we just initialize empty state from config.
-        for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
+        const mcpServers = config.mcpServers || {};
+        for (const [name, serverConfig] of Object.entries(mcpServers)) {
             // Use name as ID
             this.servers[name] = {
                 config: serverConfig,

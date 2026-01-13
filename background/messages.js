@@ -1,5 +1,14 @@
 
 // background/messages.js
+/**
+ * @typedef {import('./managers/session_manager.js').GeminiSessionManager} GeminiSessionManager
+ * @typedef {import('./managers/image_manager.js').ImageManager} ImageManager
+ * @typedef {import('./managers/control_manager.js').BrowserControlManager} BrowserControlManager
+ * @typedef {import('./managers/log_manager.js').LogManager} LogManager
+ * @typedef {import('./managers/mcp_manager.js').MCPManager} MCPManager
+ * @typedef {import('./managers/video_manager.js').VideoManager} VideoManager
+ */
+
 import { SessionMessageHandler } from './handlers/session.js';
 import { UIMessageHandler } from './handlers/ui.js';
 import { getCachedGemsListAPI } from '../services/gems_api.js';
@@ -8,8 +17,8 @@ import { deleteSessionFromServer } from '../services/session_api.js';
 
 /**
  * Sets up the global runtime message listener.
- * @param {GeminiSessionManager} sessionManager 
- * @param {ImageHandler} imageHandler 
+ * @param {GeminiSessionManager} sessionManager
+ * @param {ImageManager} imageHandler
  * @param {BrowserControlManager} controlManager
  * @param {LogManager} logManager
  * @param {MCPManager} mcpManager

@@ -12,12 +12,12 @@ export class LogManager {
     async init() {
         try {
             const result = await chrome.storage.local.get(this.STORAGE_KEY);
-            if (result[this.STORAGE_KEY]) {
+            if (result[this.STORAGE_KEY] && Array.isArray(result[this.STORAGE_KEY])) {
                 this.logs = result[this.STORAGE_KEY];
             }
-            this.add({ 
-                level: 'INFO', 
-                context: 'Background', 
+            this.add({
+                level: 'INFO',
+                context: 'Background',
                 message: 'LogManager initialized',
                 timestamp: Date.now()
             });

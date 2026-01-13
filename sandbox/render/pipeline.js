@@ -1,9 +1,10 @@
+
 // sandbox/render/pipeline.js
 import { MathHandler } from './math_utils.js';
 
 /**
  * Transforms raw text into HTML with Math placeholders protected/restored.
- * @param {string} text - Raw Markdown text
+ * @param {string | null | undefined} text - Raw Markdown text (can be null or undefined)
  * @returns {string} - HTML string
  */
 export function transformMarkdown(text) {
@@ -22,12 +23,9 @@ export function transformMarkdown(text) {
         return text == null ? '' : String(text);
     }
 
-    const markedLib = window.marked || (typeof marked !== 'undefined' ? marked : undefined);
-
-    if (typeof markedLib === 'undefined') {
+    if (typeof marked === 'undefined') {
         // Library loads asynchronously; app will rerender when ready.
         // Return raw text in the meantime without polluting console.
-        // console.warn("[Pipeline] marked lib is undefined, returning raw text");
         return text;
     }
 
@@ -48,13 +46,9 @@ export function transformMarkdown(text) {
         .replace(/\\>/g, '>')      // Fix: \> → >
         .replace(/\\-/g, '-');     // Fix: \- → -
 
-    // 3. Fix YouTube timestamp links: [[time](url)] → [time](url)
-    // Gemini often returns timestamp links in double-bracket format
-    processedText = processedText.replace(/\[\[([^\]]+)\]\(([^)]+)\)\]/g, '[$1]($2)');
-
-    // 4. Parse Markdown
+    // 3. Parse Markdown
     // Configure marked to use highlight.js for code blocks
-    let html = markedLib.parse(processedText, {
+    let html = marked.parse(processedText, {
         highlight: function(code, lang) {
             // Support 'markmap' language - keep it raw for the Markmap Loader to handle
             if (lang === 'markmap') {
@@ -74,7 +68,7 @@ export function transformMarkdown(text) {
         }
     });
 
-    // 5. Restore Math blocks
+    // 4. Restore Math blocks
     html = mathHandler.restore(html);
 
     return html;

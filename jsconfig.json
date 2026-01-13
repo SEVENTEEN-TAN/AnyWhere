@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "checkJs": true,
+    "forceConsistentCasingInFileNames": false,
+    "allowSyntheticDefaultImports": true
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "sandbox/vendor/**/*",
+    ".qoder/**/*",
+    "doc/**/*"
+  ]
+}

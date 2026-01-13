@@ -43,7 +43,6 @@ export class SettingsView {
             sidebarRadios: document.querySelectorAll('input[name="sidebar-behavior"]'),
 
             scrollIntervalInput: get('scroll-interval'),
-            scrollIntervalInput: get('scroll-interval'),
             scrollMaxTimeInput: get('scroll-max-time'),
             contextLimitInput: get('context-limit'),
 

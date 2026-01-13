@@ -4,7 +4,8 @@ import { BaseActionHandler } from './base.js';
 
 export class ObservationActions extends BaseActionHandler {
     
-    async takeScreenshot({ filePath } = {}) {
+    async takeScreenshot(args = {}) {
+        const { filePath } = args;
         try {
             const dataUrl = await new Promise(resolve => {
                 chrome.tabs.captureVisibleTab(null, { format: 'png' }, (data) => {

@@ -206,7 +206,7 @@ export async function sendGeminiMessage(prompt, context, model, files, signal, o
 
     const queryParams = new URLSearchParams({
         bl: context.blValue || 'boq_assistant-bard-web-server_20230713.13_p0',
-        _reqid: Math.floor(Math.random() * 900000) + 100000,
+        _reqid: String(Math.floor(Math.random() * 900000) + 100000),
         rt: 'c'
     });
 

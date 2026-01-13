@@ -14,7 +14,7 @@ export class AccessibilityChecker {
 
     /**
      * Run comprehensive accessibility audit
-     * @returns {Promise<{issues: Array, summary: string, score: number}>}
+     * @returns {Promise<{issues: Array, summary: string, score: number} | {error: string, issues: Array}>}
      */
     async audit() {
         this.issues = [];
