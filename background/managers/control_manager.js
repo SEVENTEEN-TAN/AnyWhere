@@ -447,39 +447,49 @@ export class BrowserControlManager {
     async _handleContinue() {
         console.log('[ControlManager] User requested continue');
 
-        // Take new snapshot to detect changes
-        const newSnapshot = await this.getSnapshot();
-        const context = this.stateStore.getCurrentContext();
-
-        // Check if page changed during intervention
-        if (newSnapshot && context.snapshotHash) {
-            const newHash = this.stateStore._hashSnapshot(newSnapshot);
-            const pageChanged = this.stateStore.hasPageChanged(newHash);
-
-            if (pageChanged) {
-                console.log('[ControlManager] Page changed during user intervention');
-                await this.stateStore.updateSnapshot(newSnapshot, newHash);
-
-                // Mark that page changed (will be included in tool output)
-                await this.stateStore.appendEvent({
-                    type: 'page_changed_during_intervention',
-                    oldHash: context.snapshotHash,
-                    newHash,
-                    timestamp: Date.now()
-                });
-            }
-        }
-
-        // Clear user intervention flag
-        await this.stateStore.clearUserIntervention();
-
-        // Resume control overlay
+        // P4 Optimization: Resume UI immediately so user knows it worked
+        // This hides the "Continue" button and shows "AI is controlling..." immediately
         await this.controlOverlay.continue();
 
-        // Signal to resume operations
-        if (this._continueCallback) {
-            this._continueCallback();
-            this._continueCallback = null;
+        try {
+            // Take new snapshot to detect changes
+            const newSnapshot = await this.getSnapshot();
+            const context = this.stateStore.getCurrentContext();
+
+            // Check if page changed during intervention
+            if (newSnapshot && context.snapshotHash) {
+                const newHash = this.stateStore._hashSnapshot(newSnapshot);
+                const pageChanged = this.stateStore.hasPageChanged(newHash);
+
+                if (pageChanged) {
+                    console.log('[ControlManager] Page changed during user intervention');
+                    await this.stateStore.updateSnapshot(newSnapshot, newHash);
+
+                    // Mark that page changed (will be included in tool output)
+                    await this.stateStore.appendEvent({
+                        type: 'page_changed_during_intervention',
+                        oldHash: context.snapshotHash,
+                        newHash,
+                        timestamp: Date.now()
+                    });
+                }
+            }
+
+            // Clear user intervention flag
+            await this.stateStore.clearUserIntervention();
+
+            // Resume control overlay
+            await this.controlOverlay.continue();
+
+            // Signal to resume operations
+            if (this._continueCallback) {
+                this._continueCallback();
+                this._continueCallback = null;
+            }
+        } catch (error) {
+            console.error('[ControlManager] Failed to resume automation:', error);
+            // If resume failed (e.g. snapshot failed), we must re-pause UI so user can try again
+            await this.controlOverlay.pause(`Resumption failed: ${error.message}. Please fix the issue and try again.`);
         }
     }
 
@@ -697,6 +707,9 @@ export class BrowserControlManager {
 
             console.log(`[MCP] Executing tool: ${name}`, args);
 
+            // P4 Optimization: Immediate UI feedback
+            await this.updateControlStatus(`Analyzing page state...`);
+
             // Check for blocking elements before execution
             const blockingDetected = await this._detectBlockingElements();
             if (blockingDetected) {
@@ -747,6 +760,9 @@ export class BrowserControlManager {
      * @private
      */
     async _executeWithTransaction(name, args) {
+        // P4 Optimization: Update UI before snapshotting (which can be slow)
+        await this.updateControlStatus(`Creating checkpoint...`);
+
         // Step 1: Save checkpoint before execution
         const snapshot = await this.getSnapshot();
         if (snapshot) {

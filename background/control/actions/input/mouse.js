@@ -33,6 +33,38 @@ export class MouseActions extends BaseActionHandler {
                 const objectId = await this.getObjectIdFromUid(uid);
                 const backendNodeId = this.snapshotManager.getBackendNodeId(uid);
 
+                // P1 Enhancement: Check if element is an OPTION
+                // If so, redirect to parent SELECT interaction (since OPTIONs don't have box models)
+                try {
+                    const nodeInfo = await this.cmd("DOM.describeNode", { backendNodeId });
+                    if (nodeInfo.node && nodeInfo.node.nodeName === 'OPTION') {
+                         console.log(`[MouseActions] Detected click on OPTION tag, redirecting to parent SELECT logic`);
+
+                         // Check if disabled before proceeding
+                         const isDisabled = await this._isElementDisabled(objectId);
+                         // Also check if parent select is disabled (common pattern)
+                         const isParentDisabled = await this.cmd("Runtime.callFunctionOn", {
+                             objectId,
+                             functionDeclaration: `function() {
+                                 return this.parentElement && (this.parentElement.disabled || this.parentElement.getAttribute('aria-disabled') === 'true');
+                             }`,
+                             returnByValue: true
+                         }).then(r => r?.result?.value);
+
+                         if (isDisabled || isParentDisabled) {
+                             throw new Error('Element is disabled');
+                         }
+
+                         // Use JS fallback immediately which has enhanced SELECT support
+                         // This is much more reliable than trying to click the option physically
+                         // especially inside a closed select dropdown
+                         return await this._jsClickFallback(uid, dblClick);
+                    }
+                } catch (nodeErr) {
+                    if (nodeErr.message === 'Element is disabled') throw nodeErr;
+                    // Ignore, continue with standard click
+                }
+
                 // P2 Enhancement: Check if element will open a new tab
                 let willOpenNewTab = false;
                 try {
@@ -86,6 +118,11 @@ export class MouseActions extends BaseActionHandler {
                 let newTabPromise = null;
                 if (willOpenNewTab) {
                     newTabPromise = this.connection.waitForNewTab(5000);  // 5 second timeout
+                }
+
+                // P3 Enhancement: Show click feedback (Ripple)
+                if (this.controlOverlay) {
+                    this.controlOverlay.showClickFeedback(x, y, dblClick ? 'dblclick' : 'click').catch(() => {});
                 }
 
                 // 3. Dispatch Trusted Input Events wrapped in WaitHelper
@@ -334,7 +371,7 @@ export class MouseActions extends BaseActionHandler {
         try {
             const objectId = await this.getObjectIdFromUid(uid);
 
-            // Phase 1 Enhancement: Shadow DOM support
+            // Phase 1 Enhancement: Shadow DOM & Framework support
             await this.waitHelper.execute(async () => {
                 const result = await this.cmd("Runtime.callFunctionOn", {
                     objectId,
@@ -342,13 +379,60 @@ export class MouseActions extends BaseActionHandler {
                         // Try to focus first
                         try { this.focus(); } catch(e) {}
 
-                        // Dispatch mouse events
-                        const opts = { bubbles: true, cancelable: true, view: window };
+                        // Handle Option clicks specially
+                        if (this.tagName === 'OPTION' && this.parentElement && this.parentElement.tagName === 'SELECT') {
+                            const select = this.parentElement;
+
+                            // Respect multiple selection
+                            if (select.multiple) {
+                                this.selected = !this.selected;
+                            } else {
+                                const idx = Array.from(select.options).indexOf(this);
+                                // Use prototype setter for React compatibility
+                                try {
+                                    const proto = window.HTMLSelectElement.prototype;
+                                    const nativeSetter = Object.getOwnPropertyDescriptor(proto, "selectedIndex").set;
+                                    nativeSetter.call(select, idx);
+                                } catch (e) {
+                                    select.selectedIndex = idx;
+                                }
+                            }
+
+                            // Dispatch events on the SELECT
+                            select.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+                            select.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+                            select.dispatchEvent(new Event('click', { bubbles: true, composed: true }));
+
+                            return { success: true, isOption: true };
+                        }
+
+                        // Handle Checkbox/Radio toggle logic for frameworks
+                        if (this.tagName === 'INPUT' && (this.type === 'checkbox' || this.type === 'radio')) {
+                             // Click often works, but if it fails to update state, we enforce it
+                             // We don't force value here yet, we let click() try first
+                             // But we ensure bubbling is correct
+                        }
+
+                        // Dispatch mouse events with composed: true for Shadow DOM
+                        const opts = { bubbles: true, cancelable: true, view: window, composed: true };
                         this.dispatchEvent(new MouseEvent('mousedown', opts));
                         this.dispatchEvent(new MouseEvent('mouseup', opts));
 
                         // Click (works in Shadow DOM)
-                        this.click();
+                        try {
+                            this.click();
+                        } catch (clickErr) {
+                            // If click fails (e.g. element not interactable), ignore here
+                            // We already dispatched mouse events which is often enough
+                        }
+
+                        // For radio/checkbox, sometimes click() is intercepted.
+                        // If state didn't change, force it via prototype setter
+                        if (this.tagName === 'INPUT' && (this.type === 'checkbox' || this.type === 'radio')) {
+                             // Check if we need to force change (if framework blocked it)
+                             // This is risky if the app has complex logic, but safer for automation
+                             // Keeping it simple for now: rely on composed events above
+                        }
 
                         // Double click if requested
                         if (${dblClick}) {
@@ -363,6 +447,9 @@ export class MouseActions extends BaseActionHandler {
                 const value = result?.result?.value;
                 if (value?.shadowRoot) {
                     console.log(`[JSFallback] Successfully clicked element in Shadow DOM`);
+                }
+                if (value?.isOption) {
+                    console.log(`[JSFallback] Successfully selected OPTION via parent SELECT`);
                 }
             });
 

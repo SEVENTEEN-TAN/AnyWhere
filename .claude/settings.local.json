@@ -7,7 +7,8 @@
       "mcp__ace-tool__enhance_prompt",
       "mcp__ace-tool__search_context",
       "Bash(C:/Users/Administrator/.claude/bin/codeagent-wrapper.exe --backend codex resume 019bb66d-a1b7-7e22-b6e0-a29f10eba52a - \"$PWD\" <<'EOF'\nROLE_FILE: C:/Users/Administrator/.claude/.ccg/prompts/codex/architect.md\n<TASK>\n需求：请按照之前生成的 \"Browser Automation Reliability Plan\" 规划文档，开始实施浏览器自动化优化。\n\n## 实施要求\n\n1. **严格遵循规划文档**：按照文档中的技术实现方案逐步开发\n2. **优先级顺序**：\n   - 第一阶段：创建三个新核心模块（ExecutionWatchdog, AutomationStateStore, CheckpointManager）\n   - 第二阶段：改造现有模块（BrowserControlManager, PromptHandler, WaitForHelper 等）\n   - 第三阶段：集成测试和验证\n\n3. **代码质量要求**：\n   - 完整的错误处理和异常分类\n   - 详细的代码注释（说明设计意图）\n   - 保持与现有代码风格一致\n   - 确保向后兼容\n\n4. **关键实施点**：\n   - ExecutionWatchdog 必须支持超时、心跳、重试三大机制\n   - AutomationStateStore 需要实现完整的 checkpoint 生命周期\n   - CheckpointManager 要支持阶段总结生成和任务分段\n   - WaitForHelper 扩展条件等待和网络空闲检测\n   - PromptHandler 的 MAX_LOOPS 改为可配置（默认 40）\n\n5. **测试验证**：\n   - 每个新模块编写后进行单元测试验证\n   - 集成到现有系统后进行回归测试\n   - 确保不影响现有功能\n\n上下文：\n- 规划文档路径：.claude/plan/浏览器自动化优化.md\n- 项目根目录：E:/Project/GitHub/AnyWhere/AnyWhere\n- 会话 ID：019bb66d-a1b7-7e22-b6e0-a29f10eba52a\n\n请开始实施开发，按照规划的文件修改清单逐步完成。\n</TASK>\nOUTPUT: 完整的代码实现，包括新增模块和现有模块的改造。每完成一个关键模块后请报告进度。\nEOF)",
-      "mcp__ccw-tools__write_file"
+      "mcp__ccw-tools__write_file",
+      "Skill(ccg:review)"
     ]
   }
 }

@@ -219,8 +219,9 @@ export class ControlOverlay {
                         const pauseBtn = document.createElement('button');
                         pauseBtn.className = 'control-btn pause';
                         pauseBtn.id = 'gemini-pause-btn';
-                        pauseBtn.innerHTML = '⏸ Pause';
-                        
+                        const pauseText = window.chrome?.i18n?.getMessage('overlay_pause') || '⏸ Pause';
+                        pauseBtn.innerHTML = pauseText;
+
                         pauseBtn.addEventListener('click', () => {
                             window.__geminiControlAction = 'pause';
                         });
@@ -229,11 +230,30 @@ export class ControlOverlay {
                         const continueBtn = document.createElement('button');
                         continueBtn.className = 'control-btn continue';
                         continueBtn.id = 'gemini-continue-btn';
-                        continueBtn.innerHTML = '▶ Continue';
+                        const continueText = window.chrome?.i18n?.getMessage('overlay_continue') || '▶ Continue';
+                        continueBtn.innerHTML = continueText;
                         continueBtn.style.display = 'none';  // Hidden by default
-                        
+
                         continueBtn.addEventListener('click', () => {
+                            // Immediate visual feedback
+                            continueBtn.disabled = true;
+                            const resumingText = window.chrome?.i18n?.getMessage('overlay_resuming') || 'Resuming...';
+                            continueBtn.innerHTML = resumingText;
+                            continueBtn.style.opacity = '0.7';
+                            continueBtn.style.cursor = 'wait';
+
                             window.__geminiControlAction = 'continue';
+
+                            // Safety timeout to reset button if background script crashes/timeouts
+                            setTimeout(() => {
+                                if (continueBtn.disabled) {
+                                    continueBtn.disabled = false;
+                                    const continueText = window.chrome?.i18n?.getMessage('overlay_continue') || '▶ Continue';
+                                    continueBtn.innerHTML = continueText;
+                                    continueBtn.style.opacity = '1';
+                                    continueBtn.style.cursor = 'pointer';
+                                }
+                            }, 5000);
                         });
 
                         panel.appendChild(status);
@@ -303,6 +323,13 @@ export class ControlOverlay {
                         state.pauseBtn.style.display = 'none';
                         state.continueBtn.style.display = 'flex';
 
+                        // Reset continue button state
+                        state.continueBtn.disabled = false;
+                        const continueText = window.chrome?.i18n?.getMessage('overlay_continue') || '▶ Continue';
+                        state.continueBtn.innerHTML = continueText;
+                        state.continueBtn.style.opacity = '1';
+                        state.continueBtn.style.cursor = 'pointer';
+
                         // Remove blur effect when paused
                         state.overlay.style.backdropFilter = 'none';
                         state.overlay.style.animation = 'none';  // Stop breathing animation
@@ -345,6 +372,13 @@ export class ControlOverlay {
                         // Swap buttons
                         state.continueBtn.style.display = 'none';
                         state.pauseBtn.style.display = 'flex';
+
+                        // Reset continue button state (for next time)
+                        state.continueBtn.disabled = false;
+                        const continueText = window.chrome?.i18n?.getMessage('overlay_continue') || '▶ Continue';
+                        state.continueBtn.innerHTML = continueText;
+                        state.continueBtn.style.opacity = '1';
+                        state.continueBtn.style.cursor = 'pointer';
 
                         // Restore blur effect when continuing
                         state.overlay.style.backdropFilter = 'blur(2px)';
@@ -472,6 +506,88 @@ export class ControlOverlay {
             });
         } catch (e) {
             // Silent fail
+        }
+    }
+
+    /**
+     * Show click feedback (ripple effect) at specific coordinates
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @param {string} type - 'click' or 'dblclick'
+     */
+    async showClickFeedback(x, y, type = 'click') {
+        if (!this.connection.attached) return;
+
+        try {
+            await this.connection.sendCommand("Runtime.evaluate", {
+                expression: `
+                    (function() {
+                        const ripple = document.createElement('div');
+                        ripple.className = 'gemini-click-ripple';
+                        ripple.style.cssText = \`
+                            position: fixed;
+                            left: ${x}px;
+                            top: ${y}px;
+                            width: 20px;
+                            height: 20px;
+                            background: rgba(59, 130, 246, 0.6);
+                            background: var(--primary, #0b57d0);
+                            border-radius: 50%;
+                            transform: translate(-50%, -50%) scale(0);
+                            pointer-events: none;
+                            z-index: 1000000;
+                            box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+                        \`;
+
+                        ripple.setAttribute('aria-hidden', 'true');
+
+                        if (!document.getElementById('gemini-click-styles')) {
+                            const style = document.createElement('style');
+                            style.id = 'gemini-click-styles';
+                            style.textContent = \`
+                                @media (prefers-reduced-motion: no-preference) {
+                                    @keyframes ripple-effect {
+                                        0% {
+                                            transform: translate(-50%, -50%) scale(0);
+                                            opacity: 1;
+                                        }
+                                        100% {
+                                            transform: translate(-50%, -50%) scale(2.5);
+                                            opacity: 0;
+                                        }
+                                    }
+                                }
+                            \`;
+                            document.head.appendChild(style);
+                        }
+
+                        // Only animate if user prefers motion
+                        if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+                            ripple.style.animation = 'ripple-effect ${type === 'dblclick' ? '0.6s' : '0.4s'} ease-out forwards';
+                        } else {
+                             // Fallback for reduced motion: just flash
+                             ripple.style.transform = 'translate(-50%, -50%) scale(1)';
+                             ripple.style.opacity = '1';
+                             setTimeout(() => ripple.style.opacity = '0', 200);
+                        }
+
+                        document.body.appendChild(ripple);
+
+                        if ('${type}' === 'dblclick' && window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+                            setTimeout(() => {
+                                const ripple2 = ripple.cloneNode(true);
+                                ripple2.style.animation = 'ripple-effect 0.4s ease-out forwards';
+                                document.body.appendChild(ripple2);
+                                setTimeout(() => ripple2.remove(), 400);
+                            }, 100);
+                        }
+
+                        setTimeout(() => ripple.remove(), 600);
+                    })()
+                `
+            });
+        } catch (e) {
+            console.warn('[ControlOverlay] Failed to show click feedback:', e.message);
         }
     }
 

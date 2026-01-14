@@ -12,9 +12,9 @@ export class KeyboardActions extends BaseActionHandler {
             // Pass value as argument to avoid syntax errors with special chars
             await this.cmd("Runtime.callFunctionOn", {
                 objectId: objectId,
-                functionDeclaration: `function(val) { 
+                functionDeclaration: `function(val) {
                     this.focus();
-                    
+
                     const tagName = this.tagName;
                     const isSelect = tagName === 'SELECT';
                     const isContentEditable = this.isContentEditable;
@@ -25,7 +25,14 @@ export class KeyboardActions extends BaseActionHandler {
                         // 1. Try matching by value attribute
                         for (let i = 0; i < this.options.length; i++) {
                             if (this.options[i].value === val) {
-                                this.selectedIndex = i;
+                                // Use prototype setter to bypass React/Vue tracking
+                                try {
+                                    const proto = window.HTMLSelectElement.prototype;
+                                    const nativeSetter = Object.getOwnPropertyDescriptor(proto, "selectedIndex").set;
+                                    nativeSetter.call(this, i);
+                                } catch (e) {
+                                    this.selectedIndex = i;
+                                }
                                 found = true;
                                 break;
                             }
@@ -34,36 +41,70 @@ export class KeyboardActions extends BaseActionHandler {
                         if (!found) {
                             for (let i = 0; i < this.options.length; i++) {
                                 if (this.options[i].text === val) {
-                                    this.selectedIndex = i;
+                                    // Use prototype setter
+                                    try {
+                                        const proto = window.HTMLSelectElement.prototype;
+                                        const nativeSetter = Object.getOwnPropertyDescriptor(proto, "selectedIndex").set;
+                                        nativeSetter.call(this, i);
+                                    } catch (e) {
+                                        this.selectedIndex = i;
+                                    }
                                     found = true;
                                     break;
                                 }
                             }
                         }
-                        // 3. Fallback to direct assignment
-                        if (!found) this.value = val;
+                        // 3. Fallback to direct assignment (also via prototype)
+                        if (!found) {
+                            try {
+                                const proto = window.HTMLSelectElement.prototype;
+                                const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value").set;
+                                nativeSetter.call(this, val);
+                            } catch (e) {
+                                this.value = val;
+                            }
+                        }
                     } else if (isContentEditable) {
                         // Use execCommand for better undo history support where possible
                         // First select all content to replace it
                         document.execCommand('selectAll', false, null);
                         document.execCommand('insertText', false, val);
-                        
+
                         // Fallback if execCommand fails or adds nothing (e.g. empty string)
                         if (this.innerText !== val && val !== "") {
                             this.innerText = val;
                         }
                     } else {
                         // Standard input/textarea
-                        this.value = val;
+                        // Use prototype setter to bypass React/Vue tracking
+                        const proto = window.HTMLInputElement.prototype;
+                        const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value").set;
+                        // For textarea, use HTMLTextAreaElement prototype
+                        if (tagName === 'TEXTAREA') {
+                            try {
+                                 const textAreaProto = window.HTMLTextAreaElement.prototype;
+                                 const textAreaSetter = Object.getOwnPropertyDescriptor(textAreaProto, "value").set;
+                                 textAreaSetter.call(this, val);
+                            } catch (e) {
+                                 this.value = val;
+                            }
+                        } else {
+                            try {
+                                 nativeSetter.call(this, val);
+                            } catch (e) {
+                                 this.value = val;
+                            }
+                        }
                     }
-                    
+
                     // Dispatch standard events to trigger framework listeners (React, Vue, etc.)
-                    this.dispatchEvent(new Event('input', { bubbles: true })); 
-                    this.dispatchEvent(new Event('change', { bubbles: true })); 
-                    
+                    // Key: 'bubbles: true' AND 'composed: true' for Shadow DOM support
+                    this.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+                    this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
                     // Specific for some selects
                     if (isSelect) {
-                        this.dispatchEvent(new Event('click', { bubbles: true }));
+                        this.dispatchEvent(new Event('click', { bubbles: true, composed: true }));
                     }
                 }`,
                 arguments: [{ value: value }]
