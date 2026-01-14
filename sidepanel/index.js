@@ -206,6 +206,59 @@ window.addEventListener('message', (event) => {
     // --- Data Requests from Sandbox ---
 
     // --- GEMS LIST REQUEST ---
+    if (action === 'FETCH_TABS_LIST') {
+        const messageId = event.data.messageId;
+
+        chrome.runtime.sendMessage({ action: 'GET_ALL_TABS' }, (response) => {
+            if (chrome.runtime.lastError) {
+                if (iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({
+                        action: 'TABS_LIST_RESPONSE',
+                        messageId,
+                        response: { tabs: [], error: chrome.runtime.lastError.message }
+                    }, '*');
+                }
+                return;
+            }
+
+            if (iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    action: 'TABS_LIST_RESPONSE',
+                    messageId,
+                    response
+                }, '*');
+            }
+        });
+        return;
+    }
+
+    if (action === 'FETCH_TABS_CONTENT') {
+        const messageId = event.data.messageId;
+        const tabIds = event.data.tabIds || [];
+
+        chrome.runtime.sendMessage({ action: 'GET_TABS_CONTENT', tabIds }, (response) => {
+            if (chrome.runtime.lastError) {
+                if (iframe.contentWindow) {
+                    iframe.contentWindow.postMessage({
+                        action: 'TABS_CONTENT_RESPONSE',
+                        messageId,
+                        response: { content: '', error: chrome.runtime.lastError.message }
+                    }, '*');
+                }
+                return;
+            }
+
+            if (iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    action: 'TABS_CONTENT_RESPONSE',
+                    messageId,
+                    response
+                }, '*');
+            }
+        });
+        return;
+    }
+
     if (action === 'FETCH_GEMS_LIST') {
         const messageId = event.data.messageId;
         const userIndex = event.data.userIndex || '0';

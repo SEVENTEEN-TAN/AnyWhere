@@ -140,6 +140,52 @@ export function setupMessageListener(sessionManager, imageHandler, controlManage
             return false;
         }
 
+        // --- TAB MANAGEMENT ---
+        if (request.action === 'GET_ALL_TABS') {
+            chrome.tabs.query({ currentWindow: true }).then(tabs => {
+                sendResponse({ tabs });
+            });
+            return true;
+        }
+
+        if (request.action === 'GET_TABS_CONTENT') {
+            (async () => {
+                const { tabIds } = request;
+                const results = [];
+                
+                for (const tabId of tabIds) {
+                    try {
+                        const tab = await chrome.tabs.get(parseInt(tabId));
+                        // Skip if restricted
+                         if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('edge://') || tab.url?.startsWith('about:')) {
+                            results.push(`=== Tab: ${tab.title} (${tab.url}) ===\n[Restricted Content]`);
+                            continue;
+                        }
+
+                        const [scriptResult] = await chrome.scripting.executeScript({
+                            target: { tabId: parseInt(tabId) },
+                            func: () => {
+                                const raw = document.body?.innerText || document.documentElement?.innerText || '';
+                                return raw.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+                            }
+                        });
+                        
+                        if (scriptResult && scriptResult.result) {
+                            const text = String(scriptResult.result);
+                            results.push(`=== Tab: ${tab.title} (${tab.url}) ===\n${text}`);
+                        } else {
+                            results.push(`=== Tab: ${tab.title} (${tab.url}) ===\n[No Content Retrieved]`);
+                        }
+                    } catch (e) {
+                        results.push(`=== Tab: ${tabId} ===\nError: ${e.message}`);
+                    }
+                }
+                
+                sendResponse({ content: results.join('\n\n') });
+            })();
+            return true;
+        }
+
         // --- PROXY FETCH (CORS Bypass) ---
         if (request.action === 'PROXY_FETCH') {
             (async () => {

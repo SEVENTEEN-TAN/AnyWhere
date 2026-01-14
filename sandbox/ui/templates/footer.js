@@ -48,7 +48,7 @@ export const FooterTemplate = `
                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                         <line x1="9" y1="3" x2="9" y2="21"></line>
                     </svg>
-                    <span data-i18n="pageContext">Tab</span>
+                    <span data-i18n="pageContext">Tabs</span>
                 </button>
                                 <button id="quote-btn" class="tool-btn context-aware" data-i18n-title="quoteTooltip" title="Quote selected text from page">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -121,6 +121,20 @@ export const FooterTemplate = `
                         </div>
                         <div id="mcp-server-list" class="mcp-server-list">
                             <!-- Dynamically populated -->
+                        </div>
+                    </div>
+                    
+                    <!-- Tab Picker Modal -->
+                    <div id="tab-picker" class="mcp-picker hidden">
+                        <div class="mcp-picker-header">
+                            <span>Select Tabs</span>
+                        </div>
+                        <div id="tab-list" class="mcp-server-list" style="max-height: 300px; overflow-y: auto;">
+                            <!-- Dynamically populated -->
+                        </div>
+                         <div class="mcp-picker-footer" style="padding: 10px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 8px;">
+                            <button id="tab-picker-cancel" class="secondary-btn" style="padding: 4px 8px; cursor: pointer;">Cancel</button>
+                            <button id="tab-picker-confirm" class="primary-btn" style="padding: 4px 8px; cursor: pointer;">Confirm</button>
                         </div>
                     </div>
                     

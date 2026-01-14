@@ -1,6 +1,6 @@
 
 // sandbox/boot/events.js
-import { sendToBackground } from '../../lib/messaging.js';
+import { sendToBackground, fetchTabsList, fetchTabsContent } from '../../lib/messaging.js';
 import { t } from '../core/i18n.js';
 
 export function bindAppEvents(app, ui, setResizeRef) {
@@ -87,22 +87,154 @@ export function bindAppEvents(app, ui, setResizeRef) {
         ui.updateStatus(t('selectSnip'));
     });
 
-    // Page Context Toggle - Now uses Element Picker
+    // Page Context Toggle - Now uses Tab Picker
     const contextBtn = document.getElementById('page-context-btn');
+    const tabPicker = document.getElementById('tab-picker');
+    const tabList = document.getElementById('tab-list');
+    const tabConfirm = document.getElementById('tab-picker-confirm');
+    const tabCancel = document.getElementById('tab-picker-cancel');
+
     if (contextBtn) {
-        contextBtn.addEventListener('click', () => {
+        contextBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
             // If already active, disable it
             if (app.pageContextActive) {
                 app.togglePageContext();
                 return;
             }
 
-            // Otherwise, start element picker to select content
-            app.pendingPageContext = true;
-            ui.updateStatus(t('selectElement') || 'Select content area...');
-            sendToBackground({ action: "START_ELEMENT_PICKER" });
+            // Show Tab Picker
+            ui.updateStatus('Fetching open tabs...');
+            try {
+                const response = await fetchTabsList();
+                ui.updateStatus('');
+                if (response && response.tabs) {
+                    tabList.innerHTML = '';
+                    response.tabs.forEach(tab => {
+                        const item = document.createElement('div');
+                        item.className = 'mcp-server-item'; // Reuse mcp class for consistent styling
+                        item.style.display = 'flex';
+                        item.style.alignItems = 'center';
+                        item.style.gap = '8px';
+                        item.style.padding = '8px';
+                        item.style.cursor = 'pointer';
+                        
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = tab.id;
+                        checkbox.id = `tab-${tab.id}`;
+                        checkbox.style.cursor = 'pointer';
+                        
+                        const label = document.createElement('label');
+                        label.htmlFor = `tab-${tab.id}`;
+                        label.textContent = tab.title;
+                        label.style.whiteSpace = 'nowrap';
+                        label.style.overflow = 'hidden';
+                        label.style.textOverflow = 'ellipsis';
+                        label.style.flex = '1';
+                        label.style.cursor = 'pointer';
+                        
+                        item.appendChild(checkbox);
+                        
+                        if (tab.favIconUrl) {
+                             const img = document.createElement('img');
+                             img.src = tab.favIconUrl;
+                             img.style.width = '16px';
+                             img.style.height = '16px';
+                             item.appendChild(img);
+                        }
+                        
+                        item.appendChild(label);
+                        
+                        // Handle direct checkbox click (Limit 5)
+                        checkbox.addEventListener('click', (e) => {
+                             const checkedCount = tabList.querySelectorAll('input[type="checkbox"]:checked').length;
+                             if (checkbox.checked && checkedCount > 5) {
+                                 e.preventDefault();
+                                 checkbox.checked = false; 
+                                 ui.updateStatus('Max 5 tabs allowed');
+                             }
+                        });
+
+                        // Handle row click (Limit 5)
+                        item.addEventListener('click', (e) => {
+                             if (e.target !== checkbox) {
+                                 if (!checkbox.checked) {
+                                     const checkedCount = tabList.querySelectorAll('input[type="checkbox"]:checked').length;
+                                     if (checkedCount >= 5) {
+                                         ui.updateStatus('Max 5 tabs allowed');
+                                         return;
+                                     }
+                                 }
+                                 checkbox.checked = !checkbox.checked;
+                             }
+                        });
+
+                        tabList.appendChild(item);
+                    });
+                    tabPicker.classList.remove('hidden');
+                } else if (response && response.error) {
+                    ui.updateStatus(response.error);
+                } else {
+                    ui.updateStatus('No tabs found');
+                }
+            } catch (err) {
+                console.error("Failed to fetch tabs:", err);
+                ui.updateStatus('Error fetching tabs');
+            }
         });
     }
+
+    // Tab Picker Events
+    if (tabConfirm) {
+        tabConfirm.addEventListener('click', async () => {
+             const selectedCheckboxes = tabList.querySelectorAll('input[type="checkbox"]:checked');
+             const tabIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+             
+             if (tabIds.length === 0) {
+                 ui.updateStatus('Please select at least one tab');
+                 return;
+             }
+             
+             ui.updateStatus(`Fetching content from ${tabIds.length} tabs...`);
+             tabPicker.classList.add('hidden');
+             
+             try {
+                 const response = await fetchTabsContent(tabIds);
+                 if (response && response.content) {
+                     ui.updateStatus(`Summarizing content from ${tabIds.length} tabs...`);
+                     
+                     // Use MessageHandler to execute summarization with the fetched content
+                     if (app.messageHandler && app.messageHandler.executeSummarize) {
+                         app.messageHandler.executeSummarize(response.content);
+                     } else {
+                         console.error("MessageHandler.executeSummarize is not available");
+                         ui.updateStatus('Error: Summarization unavailable');
+                     }
+                 } else if (response && response.error) {
+                     ui.updateStatus(response.error);
+                 } else {
+                     ui.updateStatus('Failed to fetch content');
+                 }
+             } catch (err) {
+                 console.error("Failed to fetch tab content:", err);
+                 ui.updateStatus('Error fetching content');
+             }
+        });
+    }
+    
+    if (tabCancel) {
+        tabCancel.addEventListener('click', () => {
+            tabPicker.classList.add('hidden');
+        });
+    }
+
+    // Close on click outside (General listener for both menus)
+    document.addEventListener('click', (e) => {
+        if (tabPicker && !tabPicker.classList.contains('hidden') && !tabPicker.contains(e.target) && !contextBtn.contains(e.target)) {
+            tabPicker.classList.add('hidden');
+        }
+    });
 
     // Model Selector
     const modelSelect = document.getElementById('model-select');
