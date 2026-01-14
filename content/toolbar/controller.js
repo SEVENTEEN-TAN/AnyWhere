@@ -65,22 +65,30 @@
             });
 
             // Restore floating model preference
-            chrome.storage.local.get(['gemini_floating_model', 'gemini_gem_id'], (result) => {
-                this.savedModel = result.gemini_floating_model;
-                if (result.gemini_gem_id) {
-                    this.storedGemId = result.gemini_gem_id;
+            try {
+                if (chrome.runtime?.id) {
+                    chrome.storage.local.get(['gemini_floating_model', 'gemini_gem_id'], (result) => {
+                        const err = chrome.runtime?.lastError;
+                        if (err) return;
+                        this.savedModel = result?.gemini_floating_model;
+                        if (result?.gemini_gem_id) {
+                            this.storedGemId = result.gemini_gem_id;
+                        }
+                    });
                 }
-            });
+            } catch (e) { }
             
             // Load models and Gems list
             this.loadModelsAndGems();
 
             // Listen for settings changes
-            chrome.storage.onChanged.addListener((changes, area) => {
-                if (area === 'local' && changes.gemini_gem_id) {
-                    this.storedGemId = changes.gemini_gem_id.newValue;
-                }
-            });
+            try {
+                chrome.storage.onChanged.addListener((changes, area) => {
+                    if (area === 'local' && changes.gemini_gem_id) {
+                        this.storedGemId = changes.gemini_gem_id.newValue;
+                    }
+                });
+            } catch (e) { }
 
             // Initialize Modules
             this.imageDetector.init();
@@ -110,7 +118,12 @@
                 this.showGlobalInput(true); // 带网页上下文打开
             } else {
                 // 需要截图的操作模式：ocr, snip, screenshot_translate
-                chrome.runtime.sendMessage({ action: "INITIATE_CAPTURE" });
+                try {
+                    if (chrome.runtime?.id) {
+                        const res = chrome.runtime.sendMessage({ action: "INITIATE_CAPTURE" });
+                        if (res && typeof res.catch === 'function') res.catch(() => {});
+                    }
+                } catch (e) { }
             }
         }
 
@@ -406,7 +419,13 @@
 
         handleModelChange(model) {
             // Save preference specifically for the floating window
-            chrome.storage.local.set({ 'gemini_floating_model': model });
+            try {
+                if (!chrome.runtime?.id) return;
+                chrome.storage.local.set({ 'gemini_floating_model': model }, () => {
+                    const err = chrome.runtime?.lastError;
+                    if (err) { }
+                });
+            } catch (e) { }
         }
 
         handleAction(actionType, data) {

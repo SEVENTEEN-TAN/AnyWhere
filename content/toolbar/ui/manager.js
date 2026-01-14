@@ -125,7 +125,13 @@
         }
 
         saveWindowDimensions(w, h) {
-            chrome.storage.local.set({ 'gemini_nexus_window_size': { w, h } });
+            try {
+                if (!chrome?.runtime?.id) return;
+                chrome.storage.local.set({ 'gemini_nexus_window_size': { w, h } }, () => {
+                    const err = chrome.runtime?.lastError;
+                    if (err) { }
+                });
+            } catch (e) { }
         }
 
         fireCallback(type, ...args) {
@@ -179,7 +185,7 @@
 
             if (this.view && this.view.windowView) {
                 const self = this;
-                this.view.windowView.show(rect, contextText, title, function() { self.resetWindowDrag(); }, mousePoint, gemId);
+                await this.view.windowView.show(rect, contextText, title, function() { self.resetWindowDrag(); }, mousePoint, gemId);
             }
         }
 

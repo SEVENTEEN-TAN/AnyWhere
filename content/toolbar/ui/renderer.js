@@ -102,11 +102,16 @@
                 const img = container.querySelector(`img[data-req-id="${task.reqId}"]`);
                 if(img) {
                     // Send message to background to fetch actual image
-                    chrome.runtime.sendMessage({ 
-                        action: "FETCH_GENERATED_IMAGE", 
-                        url: task.url, 
-                        reqId: task.reqId 
-                    });
+                    try {
+                        if (chrome?.runtime?.id) {
+                            const res = chrome.runtime.sendMessage({ 
+                                action: "FETCH_GENERATED_IMAGE", 
+                                url: task.url, 
+                                reqId: task.reqId 
+                            });
+                            if (res && typeof res.catch === 'function') res.catch(() => {});
+                        }
+                    } catch (e) { }
                 }
             });
         }

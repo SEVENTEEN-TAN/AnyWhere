@@ -7,6 +7,19 @@ class ToolbarActions {
         this.lastRequest = null;
     }
 
+    safeSendMessage(message) {
+        try {
+            if (!chrome?.runtime?.id) {
+                if (this.ui?.showError) this.ui.showError('扩展已重载，请刷新页面后重试');
+                return;
+            }
+            const result = chrome.runtime.sendMessage(message);
+            if (result && typeof result.catch === 'function') {
+                result.catch(() => { });
+            }
+        } catch (e) { }
+    }
+
     get t() {
         return window.GeminiToolbarStrings;
     }
@@ -19,8 +32,9 @@ class ToolbarActions {
      * @param {string} model - Model Name
      */
     async handleImagePrompt(imgBase64, rect, mode, model = "gemini-2.5-flash") {
-        const t = this.t;
-        let title, prompt, loadingMsg, inputVal;
+        try {
+            const t = this.t;
+            let title, prompt, loadingMsg, inputVal;
 
         switch (mode) {
             case 'ocr':
@@ -86,10 +100,14 @@ class ToolbarActions {
         };
 
         this.lastRequest = msg;
-        chrome.runtime.sendMessage(msg);
+        this.safeSendMessage(msg);
+        } catch (e) {
+            console.error('[ToolbarActions] handleImagePrompt failed:', e);
+        }
     }
 
     async handleQuickAction(actionType, selection, rect, model = "gemini-2.5-flash", mousePoint = null, gemId = null) {
+        try {
         const t = this.t;
         let prompt, title, inputPlaceholder, loadingMsg;
 
@@ -138,13 +156,16 @@ class ToolbarActions {
 
         // Log the selection content being processed
         if (selection) {
-            chrome.runtime.sendMessage({
+            this.safeSendMessage({
                 action: 'DEBUG_LOG',
                 message: `[ToolbarAction] ${actionType.toUpperCase()} Input Content:\n${selection}`
             });
         }
 
-        chrome.runtime.sendMessage(msg);
+        this.safeSendMessage(msg);
+        } catch (e) {
+            console.error('[ToolbarActions] handleQuickAction failed:', e);
+        }
     }
 
     handleSubmitAsk(question, context, sessionId = null, model = "gemini-2.5-flash", gemId = null) {
@@ -188,7 +209,7 @@ class ToolbarActions {
         };
 
         this.lastRequest = msg;
-        chrome.runtime.sendMessage(msg);
+        this.safeSendMessage(msg);
     }
 
     handleRetry() {
@@ -201,15 +222,15 @@ class ToolbarActions {
 
         const loadingMsg = this.t.loading.regenerate;
         this.ui.showLoading(loadingMsg);
-        chrome.runtime.sendMessage(this.lastRequest);
+        this.safeSendMessage(this.lastRequest);
     }
 
     handleCancel() {
-        chrome.runtime.sendMessage({ action: "CANCEL_PROMPT" });
+        this.safeSendMessage({ action: "CANCEL_PROMPT" });
     }
 
     handleContinueChat(sessionId) {
-        chrome.runtime.sendMessage({
+        this.safeSendMessage({
             action: "OPEN_SIDE_PANEL",
             sessionId: sessionId
         });

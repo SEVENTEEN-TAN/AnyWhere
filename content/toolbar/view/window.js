@@ -26,8 +26,31 @@
             if (!this.elements.askWindow) return;
 
             // Load and apply saved dimensions
-            const stored = await chrome.storage.local.get('gemini_nexus_window_size');
-            if (stored.gemini_nexus_window_size) {
+            let stored = null;
+            try {
+                if (chrome?.runtime?.id) {
+                    stored = await new Promise((resolve) => {
+                        try {
+                            if (!chrome.runtime?.id) {
+                                resolve(null);
+                                return;
+                            }
+                            chrome.storage.local.get(['gemini_nexus_window_size'], (result) => {
+                                if (chrome.runtime?.lastError) {
+                                    resolve(null);
+                                    return;
+                                }
+                                resolve(result || null);
+                            });
+                        } catch (e) {
+                            resolve(null);
+                        }
+                    });
+                }
+            } catch (e) {
+                stored = null;
+            }
+            if (stored && stored.gemini_nexus_window_size) {
                 let { w, h } = stored.gemini_nexus_window_size;
                 const maxW = window.innerWidth * 0.95;
                 const maxH = window.innerHeight * 0.95;

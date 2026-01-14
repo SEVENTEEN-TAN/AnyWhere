@@ -10,7 +10,7 @@ export const FooterTemplate = `
             </button>
             
             <div class="tools-row" id="tools-row">
-                <button id="summarize-btn" class="tool-btn" data-i18n-title="summarizeTooltip" title="Summarize current page">
+                <button id="summarize-btn" class="tool-btn" data-i18n-title="summarizeTooltip" title="Summarize this page">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="8" y1="6" x2="21" y2="6"></line>
                         <line x1="8" y1="12" x2="21" y2="12"></line>
@@ -22,7 +22,7 @@ export const FooterTemplate = `
                     <span data-i18n="summarize">Summarize</span>
                 </button>
 
-                <button id="video-summary-btn" class="tool-btn" data-i18n-title="videoSummaryTooltip" title="Summarize video content">
+                <button id="video-summary-btn" class="tool-btn" data-i18n-title="videoSummaryTooltip" title="Summarize this video">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
                         <line x1="7" y1="2" x2="7" y2="22"></line>
@@ -36,19 +36,19 @@ export const FooterTemplate = `
                     <span data-i18n="videoSummary">Video</span>
                 </button>
 
-                <button id="browser-control-btn" class="tool-btn" data-i18n-title="browserControlTooltip" title="Allow model to control browser">
+                <button id="browser-control-btn" class="tool-btn" data-i18n-title="browserControlTooltip" title="Let the model control the browser">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path>
                         <path d="m13 13 6 6"></path>
                     </svg>
-                    <span data-i18n="browserControl">Control</span>
+                    <span data-i18n="browserControl">AI Control</span>
                 </button>
-                <button id="page-context-btn" class="tool-btn context-aware" data-i18n-title="pageContextTooltip" title="Toggle chat with page content">
+                <button id="page-context-btn" class="tool-btn context-aware" data-i18n-title="pageContextTooltip" title="Include page content in chat">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                         <line x1="9" y1="3" x2="9" y2="21"></line>
                     </svg>
-                    <span data-i18n="pageContext">Page</span>
+                    <span data-i18n="pageContext">Tab</span>
                 </button>
                                 <button id="quote-btn" class="tool-btn context-aware" data-i18n-title="quoteTooltip" title="Quote selected text from page">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -57,7 +57,7 @@ export const FooterTemplate = `
                     </svg>
                     <span data-i18n="quote">Quote</span>
                 </button>
-                <button id="ocr-btn" class="tool-btn context-aware" data-i18n-title="ocrTooltip" title="Capture area and extract text">
+                <button id="ocr-btn" class="tool-btn context-aware" data-i18n-title="ocrTooltip" title="Capture area and extract text (OCR)">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M4 7V4h3"></path>
                         <path d="M20 7V4h-3"></path>
@@ -73,7 +73,7 @@ export const FooterTemplate = `
                     </svg>
                     <span data-i18n="screenshotTranslate">Translate</span>
                 </button>
-                <button id="snip-btn" class="tool-btn context-aware" data-i18n-title="snipTooltip" title="Capture area to input">
+                <button id="snip-btn" class="tool-btn context-aware" data-i18n-title="snipTooltip" title="Capture area as image input">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M6 2v14a2 2 0 0 0 2 2h14"></path>
                         <path d="M18 22V8a2 2 0 0 0-2-2H2"></path>
