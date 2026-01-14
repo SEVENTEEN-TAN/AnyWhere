@@ -21,6 +21,8 @@ export class AppController {
         this.pageContextActive = false;
         this.browserControlActive = false;
         this.nextPromptTriggerSource = null;
+        this.defaultModelId = null;
+        this.defaultModelInvalidNotified = false;
 
         // Sidebar Restore Behavior: 'auto', 'restore', 'new'
         this.sidebarRestoreBehavior = 'auto';
@@ -40,6 +42,21 @@ export class AppController {
         this.gems = new GemsController();
         this.models = new ModelsController();
     }
+
+    setDefaultModelId(modelId) {
+        this.defaultModelId = modelId || null;
+        this.defaultModelInvalidNotified = false;
+    }
+
+    applyDefaultModelIfAvailable() {
+        if (!this.defaultModelId) return false;
+        if (!this.ui || !this.ui.modelSelect) return false;
+        const exists = Array.from(this.ui.modelSelect.options).some(opt => opt.value === this.defaultModelId);
+        if (!exists) return false;
+        this.ui.modelSelect.value = this.defaultModelId;
+        this.handleModelChange(this.defaultModelId);
+        return true;
+    }
     
     // Initialize Models and Gems after DOM is ready
     initializeGems() {
@@ -53,6 +70,7 @@ export class AppController {
             this.models.fetchModels(false)
                 .then(() => {
                     console.log('[AppController] Models fetched successfully');
+                    this.applyDefaultModelIfAvailable();
                     // Update Gemini API with dynamic model configs
                     return import('../../services/gemini_api.js');
                 })
@@ -60,6 +78,12 @@ export class AppController {
                     const models = this.models.getAllModels();
                     if (models.length > 0 && module.updateModelConfigs) {
                         module.updateModelConfigs(models);
+                    }
+
+                    if (this.defaultModelId && !models.some(m => m.id === this.defaultModelId) && !this.defaultModelInvalidNotified) {
+                        this.defaultModelInvalidNotified = true;
+                        this.ui.updateStatus(t('defaultModelInvalid') || 'Default model is no longer available. Please reselect.');
+                        setTimeout(() => { if (!this.isGenerating) this.ui.updateStatus(""); }, 4000);
                     }
                 })
                 .catch(err => {

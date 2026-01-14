@@ -42,6 +42,8 @@
             this.isSelectionEnabled = true;
 
             this.storedGemId = null; // Manual Gem ID from settings
+            this.modelsList = [];
+            this.defaultModelId = null;
 
             // Bind Action Handler
             this.handleAction = this.handleAction.bind(this);
@@ -67,12 +69,15 @@
             // Restore floating model preference
             try {
                 if (chrome.runtime?.id) {
-                    chrome.storage.local.get(['gemini_floating_model', 'gemini_gem_id'], (result) => {
+                    chrome.storage.local.get(['gemini_floating_model', 'gemini_gem_id', 'geminiDefaultModel'], (result) => {
                         const err = chrome.runtime?.lastError;
                         if (err) return;
                         this.savedModel = result?.gemini_floating_model;
                         if (result?.gemini_gem_id) {
                             this.storedGemId = result.gemini_gem_id;
+                        }
+                        if (result?.geminiDefaultModel) {
+                            this.defaultModelId = result.geminiDefaultModel;
                         }
                     });
                 }
@@ -86,6 +91,9 @@
                 chrome.storage.onChanged.addListener((changes, area) => {
                     if (area === 'local' && changes.gemini_gem_id) {
                         this.storedGemId = changes.gemini_gem_id.newValue;
+                    }
+                    if (area === 'local' && changes.geminiDefaultModel) {
+                        this.defaultModelId = changes.geminiDefaultModel.newValue || null;
                     }
                 });
             } catch (e) { }
@@ -179,8 +187,9 @@
                 await this.loadGemsList();
                 
                 // Restore saved model after loading
-                if (this.savedModel) {
-                    this.ui.setSelectedModel(this.savedModel);
+                const preferred = this.defaultModelId || this.savedModel;
+                if (preferred) {
+                    this.ui.setSelectedModel(preferred);
                 }
             } catch (error) {
                 console.log('[ToolbarController] Models/Gems load failed (non-critical):', error.message);
@@ -218,6 +227,7 @@
                 
                 if (response && response.models && response.models.length > 0) {
                     console.log(`[ToolbarController] Loaded ${response.models.length} models`);
+                    this.modelsList = response.models;
                     this.populateModelsToSelector(response.models);
                 } else {
                     console.log('[ToolbarController] No models available');
@@ -233,6 +243,12 @@
                 console.warn('[ToolbarController] Model select not found');
                 return;
             }
+
+            const sortedModels = [...models].sort((a, b) => {
+                const aName = (a.name || a.id || '').toLowerCase();
+                const bName = (b.name || b.id || '').toLowerCase();
+                return aName.localeCompare(bName);
+            });
             
             // Find or create "Standard Models" optgroup
             let modelGroup = modelSelect.querySelector('optgroup[label="Standard Models"]');
@@ -245,7 +261,7 @@
             }
             
             // Add model options
-            models.forEach(model => {
+            sortedModels.forEach(model => {
                 const option = document.createElement('option');
                 option.value = model.id;
                 option.textContent = model.name || model.id;

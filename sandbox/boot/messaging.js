@@ -66,6 +66,15 @@ export class AppMessageBridge {
             }
             return;
         }
+        if (action === 'RESTORE_DEFAULT_MODEL') {
+            if (this.app && this.app.setDefaultModelId) {
+                this.app.setDefaultModelId(payload);
+            }
+            if (this.ui && this.ui.settings && this.ui.settings.updateDefaultModel) {
+                this.ui.settings.updateDefaultModel(payload);
+            }
+            return;
+        }
         if (action === 'RESTORE_TEXT_SELECTION') {
             this.ui.settings.updateTextSelection(payload);
             return;

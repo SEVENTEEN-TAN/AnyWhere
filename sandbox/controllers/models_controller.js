@@ -102,6 +102,11 @@ export class ModelsController {
 
         console.log(`[ModelsController] ===== 开始填充模型列表 =====`);
         console.log(`[ModelsController] 获取到 ${this.models.length} 个模型:`, this.models);
+        const sortedModels = [...this.models].sort((a, b) => {
+            const aName = (a.name || a.id || '').toLowerCase();
+            const bName = (b.name || b.id || '').toLowerCase();
+            return aName.localeCompare(bName);
+        });
 
         this.modelSelects.forEach((select, index) => {
             // Save current value
@@ -122,7 +127,7 @@ export class ModelsController {
             modelGroup.innerHTML = '';
 
             // Add model options
-            for (const model of this.models) {
+            for (const model of sortedModels) {
                 const option = document.createElement('option');
                 option.value = model.id;
                 option.textContent = model.name || model.id;

@@ -19,6 +19,8 @@ export class SettingsView {
 
             themeSelect: get('theme-select'),
             languageSelect: get('language-select'),
+            defaultModelSelect: get('default-model-select'),
+            defaultModelWarning: get('default-model-warning'),
 
             textSelectionToggle: get('text-selection-toggle'),
             imageToolsToggle: get('image-tools-toggle'),
@@ -119,6 +121,9 @@ export class SettingsView {
         if (languageSelect) {
             languageSelect.addEventListener('change', (e) => this.fire('onLanguageChange', e.target.value));
         }
+        if (this.elements.defaultModelSelect) {
+            this.elements.defaultModelSelect.addEventListener('change', (e) => this.fire('onDefaultModelChange', e.target.value || null));
+        }
 
         // Toggles
         if (textSelectionToggle) {
@@ -158,6 +163,36 @@ export class SettingsView {
         if (this.elements.scrollIntervalInput) this.elements.scrollIntervalInput.value = interval;
         if (this.elements.scrollMaxTimeInput) this.elements.scrollMaxTimeInput.value = maxTime;
         if (this.elements.contextLimitInput) this.elements.contextLimitInput.value = contextLimit;
+    }
+
+    setDefaultModelOptions(models) {
+        const select = this.elements.defaultModelSelect;
+        if (!select) return;
+        select.innerHTML = '';
+
+        const empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = '';
+        select.appendChild(empty);
+
+        (models || []).forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.name || m.id;
+            select.appendChild(opt);
+        });
+    }
+
+    setDefaultModelValue(modelId) {
+        const select = this.elements.defaultModelSelect;
+        if (!select) return;
+        select.value = modelId || '';
+    }
+
+    showDefaultModelInvalid(show) {
+        const el = this.elements.defaultModelWarning;
+        if (!el) return;
+        el.style.display = show ? 'block' : 'none';
     }
 
     handleSave() {

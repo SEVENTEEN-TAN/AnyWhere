@@ -29,6 +29,7 @@ chrome.storage.local.get([
     'pendingSessionId',
     'geminiShortcuts',
     'geminiModel',
+    'geminiDefaultModel',
     'pendingImage',
     'geminiSidebarBehavior', // New preference
     'geminiTextSelectionEnabled',
@@ -75,7 +76,12 @@ function trySendInitData() {
         // Push Model
         win.postMessage({
             action: 'RESTORE_MODEL',
-            payload: preFetchedData.geminiModel || 'gemini-2.5-flash'
+            payload: preFetchedData.geminiDefaultModel || preFetchedData.geminiModel || 'gemini-2.5-flash'
+        }, '*');
+
+        win.postMessage({
+            action: 'RESTORE_DEFAULT_MODEL',
+            payload: preFetchedData.geminiDefaultModel || null
         }, '*');
 
         // Push Text Selection State
@@ -379,6 +385,18 @@ window.addEventListener('message', (event) => {
         }
     }
 
+    if (action === 'GET_DEFAULT_MODEL') {
+        chrome.storage.local.get(['geminiDefaultModel'], (res) => {
+            const modelId = res.geminiDefaultModel || null;
+            if (iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    action: 'RESTORE_DEFAULT_MODEL',
+                    payload: modelId
+                }, '*');
+            }
+        });
+    }
+
     if (action === 'GET_VERSION') {
         const appVersion = chrome.runtime.getManifest().version;
         if (iframe.contentWindow) {
@@ -455,6 +473,21 @@ window.addEventListener('message', (event) => {
     if (action === 'SAVE_MODEL') {
         chrome.storage.local.set({ geminiModel: payload });
         if (preFetchedData) preFetchedData.geminiModel = payload;
+    }
+    if (action === 'SAVE_DEFAULT_MODEL') {
+        if (payload) {
+            chrome.storage.local.set({ geminiDefaultModel: payload });
+            if (preFetchedData) preFetchedData.geminiDefaultModel = payload;
+        } else {
+            chrome.storage.local.remove('geminiDefaultModel');
+            if (preFetchedData) delete preFetchedData.geminiDefaultModel;
+        }
+        if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage({
+                action: 'RESTORE_DEFAULT_MODEL',
+                payload: payload || null
+            }, '*');
+        }
     }
     if (action === 'SAVE_THEME') {
         chrome.storage.local.set({ geminiTheme: payload });

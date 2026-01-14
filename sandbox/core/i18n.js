@@ -117,7 +117,11 @@ export const translations = {
         "workspacePathPlaceholder": "e.g., MyProjects/AI-Data",
         "workspacePrompt": "Prompt for Save Location",
         "workspacePromptDesc": "Ask where to save each file (recommended for important files)",
-        "reset": "Reset"
+        "reset": "Reset",
+        "loading": "Loading...",
+        "defaultModel": "Default Model",
+        "defaultModelDesc": "Used as initial selection for new chats/windows. You can still switch models anytime.",
+        "defaultModelInvalid": "Default model is no longer available. Please reselect."
     },
     zh: {
         "searchPlaceholder": "搜索对话",
@@ -233,7 +237,11 @@ export const translations = {
         "workspacePathPlaceholder": "例如：MyProjects/AI-Data",
         "workspacePrompt": "保存位置提示",
         "workspacePromptDesc": "每次保存文件时询问位置（适合重要文件）",
-        "reset": "重置"
+        "reset": "重置",
+        "loading": "加载中...",
+        "defaultModel": "默认模型",
+        "defaultModelDesc": "用于新窗口/新会话的默认选择，你仍可随时手动切换模型。",
+        "defaultModelInvalid": "默认模型已失效，请在设置中重新选择。"
     }
 };
 

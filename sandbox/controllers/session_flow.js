@@ -15,6 +15,9 @@ export class SessionFlowController {
         if (this.app.isGenerating) this.app.prompt.cancel();
 
         this.app.messageHandler.resetStream();
+        if (this.app.applyDefaultModelIfAvailable) {
+            this.app.applyDefaultModelIfAvailable();
+        }
 
         const s = this.sessionManager.createSession();
         s.title = t('newChat');

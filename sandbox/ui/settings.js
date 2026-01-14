@@ -1,6 +1,6 @@
 
 // sandbox/ui/settings.js
-import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, sendToBackground, requestWorkspaceSettingsFromStorage, saveWorkspacePathToStorage, saveWorkspacePromptToStorage, requestAutoScrollSettingsFromStorage, saveAutoScrollSettingsToStorage, saveContextLimitToStorage } from '../../lib/messaging.js';
+import { saveShortcutsToStorage, saveThemeToStorage, requestThemeFromStorage, saveLanguageToStorage, requestLanguageFromStorage, saveTextSelectionToStorage, requestTextSelectionFromStorage, saveSidebarBehaviorToStorage, saveImageToolsToStorage, requestImageToolsFromStorage, sendToBackground, requestWorkspaceSettingsFromStorage, saveWorkspacePathToStorage, saveWorkspacePromptToStorage, requestAutoScrollSettingsFromStorage, saveAutoScrollSettingsToStorage, saveContextLimitToStorage, requestDefaultModelFromStorage, saveDefaultModelToStorage } from '../../lib/messaging.js';
 import { setLanguagePreference, getLanguagePreference } from '../core/i18n.js';
 import { SettingsView } from './settings/view.js';
 import { DEFAULT_SHORTCUTS } from '../../lib/constants.js';
@@ -15,6 +15,8 @@ export class SettingsController {
 
         this.textSelectionEnabled = true;
         this.imageToolsEnabled = true;
+        this.defaultModelId = null;
+        this.lastFetchedModels = [];
 
         // Initialize View
         this.view = new SettingsView({
@@ -27,6 +29,7 @@ export class SettingsController {
 
             onTextSelectionChange: (val) => { this.textSelectionEnabled = (val === 'on' || val === true); saveTextSelectionToStorage(this.textSelectionEnabled); },
             onImageToolsChange: (val) => { this.imageToolsEnabled = (val === 'on' || val === true); saveImageToolsToStorage(this.imageToolsEnabled); },
+            onDefaultModelChange: (modelId) => this.saveDefaultModel(modelId),
             onSaveMcp: (json) => this.saveMcpConfig(json),
             onWorkspacePathChange: (path) => this.saveWorkspacePath(path),
             onWorkspacePromptChange: (enabled) => this.saveWorkspacePrompt(enabled),
@@ -91,6 +94,12 @@ export class SettingsController {
             if (e.data.action === 'RESTORE_VERSION') {
                 this.view.setVersion(e.data.payload);
             }
+
+            if (e.data.action === 'RESTORE_DEFAULT_MODEL') {
+                this.defaultModelId = e.data.payload || null;
+                this.view.setDefaultModelValue(this.defaultModelId);
+                this.view.showDefaultModelInvalid(this.defaultModelId && !this.lastFetchedModels.some(m => m.id === this.defaultModelId));
+            }
         });
     }
 
@@ -125,6 +134,71 @@ export class SettingsController {
 
         // Load Auto Scroll Settings via messaging
         requestAutoScrollSettingsFromStorage();
+
+        this.refreshDefaultModelOptions();
+        requestDefaultModelFromStorage();
+    }
+
+    async refreshDefaultModelOptions() {
+        try {
+            const response = await this.fetchModelsList(false);
+            const models = (response && response.models) ? response.models : [];
+            this.lastFetchedModels = [...models].sort((a, b) => {
+                const aName = (a.name || a.id || '').toLowerCase();
+                const bName = (b.name || b.id || '').toLowerCase();
+                return aName.localeCompare(bName);
+            });
+            this.view.setDefaultModelOptions(this.lastFetchedModels);
+            this.view.setDefaultModelValue(this.defaultModelId);
+            this.view.showDefaultModelInvalid(this.defaultModelId && !this.lastFetchedModels.some(m => m.id === this.defaultModelId));
+        } catch (e) {
+            this.lastFetchedModels = [];
+            this.view.setDefaultModelOptions([]);
+            this.view.showDefaultModelInvalid(false);
+        }
+    }
+
+    fetchModelsList(forceRefresh = false) {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Request timeout after 15 seconds')), 15000);
+            const messageId = `settings_models_${Date.now()}`;
+
+            const handleResponse = (event) => {
+                if (event.data.action === 'MODELS_LIST_RESPONSE' && event.data.messageId === messageId) {
+                    clearTimeout(timeout);
+                    window.removeEventListener('message', handleResponse);
+                    resolve(event.data.response);
+                }
+            };
+
+            window.addEventListener('message', handleResponse);
+
+            if (!window.parent) {
+                clearTimeout(timeout);
+                window.removeEventListener('message', handleResponse);
+                reject(new Error('No parent window found'));
+                return;
+            }
+
+            window.parent.postMessage({
+                action: 'FETCH_MODELS_LIST',
+                messageId,
+                userIndex: '0',
+                forceRefresh
+            }, '*');
+        });
+    }
+
+    saveDefaultModel(modelId) {
+        this.defaultModelId = modelId || null;
+        saveDefaultModelToStorage(this.defaultModelId);
+        this.view.showDefaultModelInvalid(this.defaultModelId && !this.lastFetchedModels.some(m => m.id === this.defaultModelId));
+    }
+
+    updateDefaultModel(modelId) {
+        this.defaultModelId = modelId || null;
+        this.view.setDefaultModelValue(this.defaultModelId);
+        this.view.showDefaultModelInvalid(this.defaultModelId && !this.lastFetchedModels.some(m => m.id === this.defaultModelId));
     }
 
     saveSettings(data) {

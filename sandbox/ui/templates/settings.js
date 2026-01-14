@@ -10,6 +10,17 @@ export const SettingsTemplate = `
             <div class="settings-body">
                 <div class="setting-group">
                     <h4 data-i18n="general">General</h4>
+
+                    <div class="shortcut-row" style="margin-bottom: 12px;">
+                        <div style="flex: 1;">
+                            <label data-i18n="defaultModel" style="font-weight: 500; display: block; margin-bottom: 2px;">Default Model</label>
+                            <span class="setting-desc" data-i18n="defaultModelDesc">Used as initial selection for new chats/windows. You can still switch models anytime.</span>
+                        </div>
+                        <select id="default-model-select" class="shortcut-input" style="width: auto; padding: 6px 12px; text-align: left; max-width: 260px;">
+                            <option value="" data-i18n="loading">Loading...</option>
+                        </select>
+                    </div>
+                    <div id="default-model-warning" class="setting-desc" style="margin-top: -6px; margin-bottom: 12px; color: var(--danger); display: none;" data-i18n="defaultModelInvalid">Default model is no longer available. Please reselect.</div>
                     
                     <div class="shortcut-row" style="margin-bottom: 12px;">
                         <div style="flex: 1;">
