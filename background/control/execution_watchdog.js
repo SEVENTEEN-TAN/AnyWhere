@@ -15,6 +15,15 @@ const RETRYABLE_KEYWORDS = [
     'temporarily unavailable'
 ];
 
+export class NonRetryableError extends Error {
+    constructor(message, metadata = {}) {
+        super(message);
+        this.name = 'NonRetryableError';
+        this.code = 'NON_RETRYABLE';
+        this.metadata = metadata;
+    }
+}
+
 export class WatchdogTimeoutError extends Error {
     constructor(message, metadata = {}) {
         super(message);
@@ -158,6 +167,11 @@ export class ExecutionWatchdog {
         // Watchdog timeout is always retryable
         if (error.code === 'WATCHDOG_TIMEOUT') {
             return { type: 'timeout', retryable: true };
+        }
+
+        // Non-retryable errors
+        if (error.name === 'NonRetryableError' || error.code === 'NON_RETRYABLE') {
+            return { type: 'non_retryable', retryable: false };
         }
 
         const message = (error.message || String(error)).toLowerCase();

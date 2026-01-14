@@ -1,6 +1,4 @@
 
-// background/control/snapshot.js
-
 /**
  * Handles Accessibility Tree generation and UID mapping.
  * Converts complex DOM structures into an LLM-friendly, token-efficient text tree.
@@ -13,6 +11,8 @@ export class SnapshotManager {
         this.connection = connection;
         this.snapshotMap = new Map(); // Maps uid -> backendNodeId
         this.snapshotIdCount = 0;
+        this.persistentUidByBackend = new Map();
+        this.persistentBackendByUid = new Map();
 
         // P1 Enhancement: Snapshot cache
         this.cachedSnapshot = null;
@@ -30,6 +30,8 @@ export class SnapshotManager {
     clear() {
         this.snapshotMap.clear();
         this.clearCache();
+        this.persistentUidByBackend.clear();
+        this.persistentBackendByUid.clear();
     }
 
     /**
@@ -53,25 +55,46 @@ export class SnapshotManager {
     }
 
     /**
-     * Calculate a simple hash of AXTree nodes
+     * Calculate a strong hash of AXTree nodes using DJB2
      * @param {Array} nodes - Accessibility nodes
      * @returns {string} Hash string
      */
     _hashAXTree(nodes) {
         if (!nodes || nodes.length === 0) return 'empty';
 
-        // Use a subset of node properties for hashing to balance speed and accuracy
-        const significant = nodes.map(n => {
+        // Create a comprehensive string representation of the tree state
+        // We include properties that affect the semantic meaning of the tree
+        const str = nodes.map(n => {
             const roleVal = n.role?.value || '';
             const nameVal = n.name?.value || '';
             const childCount = n.childIds?.length || 0;
-            return `${n.nodeId}:${roleVal}:${nameVal}:${childCount}`;
-        });
+            const val = n.value?.value || ''; // Include value as it changes often
 
-        // Simple hash: concatenate and get length + first/last elements
-        const str = significant.join('|');
-        const hash = `${str.length}_${significant[0]}_${significant[significant.length - 1]}`;
-        return hash;
+            // Extract properties from properties array
+            let disabled = '0';
+            let checked = '0';
+            let selected = '0';
+            if (n.properties) {
+                for (const p of n.properties) {
+                    if (p.name === 'disabled' && p.value?.value) disabled = '1';
+                    if (p.name === 'checked' && p.value?.value) checked = '1';
+                    if (p.name === 'selected' && p.value?.value) selected = '1';
+                }
+            }
+
+            // Combine fields: nodeId is structural, others are semantic
+            return `${n.nodeId}:${roleVal}:${nameVal}:${childCount}:${val}:${disabled}:${checked}:${selected}`;
+        }).join('|');
+
+        // DJB2 Hash implementation
+        let hash = 5381;
+        for (let i = 0; i < str.length; i++) {
+            // hash * 33 + c
+            hash = ((hash << 5) + hash) + str.charCodeAt(i);
+        }
+
+        // Convert to unsigned 32-bit integer hex string
+        return (hash >>> 0).toString(16);
     }
 
     getBackendNodeId(uid) {
@@ -120,7 +143,7 @@ export class SnapshotManager {
         // Identify Root: Node that is not a child of any other node
         const allChildIds = new Set(nodes.flatMap(n => n.childIds || []));
         const root = nodes.find(n => !allChildIds.has(n.nodeId));
-        
+
         if (!root) return "Error: Could not find root of A11y tree.";
 
         // --- Helpers ---
@@ -158,13 +181,13 @@ export class SnapshotManager {
             if (node.ignored) return false;
             const role = getVal(node.role);
             const name = getVal(node.name);
-            
+
             // Skip purely structural/generic roles unless they have a specific name
             if (role === 'generic' || role === 'StructuralContainer' || role === 'div' || role === 'text' || role === 'none' || role === 'presentation') {
                  if (name && name.trim().length > 0) return true;
-                 // Keep if it has input-related properties? 
+                 // Keep if it has input-related properties?
                  // For token efficiency, we bias towards removing generic containers.
-                 return false; 
+                 return false;
             }
             return true;
         };
@@ -178,10 +201,21 @@ export class SnapshotManager {
             let line = '';
 
             if (shouldPrint) {
-                // 1. Assign Stable UID
-                nodeCounter++;
-                const uid = `${currentSnapshotPrefix}_${nodeCounter}`;
-                
+                let uid = null;
+                const backendId = node.backendDOMNodeId;
+                const frameId = node.frameId || '';
+                const stableKey = backendId ? `${frameId}:${backendId}` : null;
+                if (stableKey && this.persistentUidByBackend.has(stableKey)) {
+                    uid = this.persistentUidByBackend.get(stableKey);
+                } else {
+                    nodeCounter++;
+                    uid = `${currentSnapshotPrefix}_${nodeCounter}`;
+                    if (stableKey) {
+                        this.persistentUidByBackend.set(stableKey, uid);
+                        this.persistentBackendByUid.set(uid, stableKey);
+                    }
+                }
+
                 if (node.backendDOMNodeId) {
                     this.snapshotMap.set(uid, node.backendDOMNodeId);
                 }
@@ -223,9 +257,9 @@ export class SnapshotManager {
 
                     for (const key of sortedKeys) {
                         if (excludedProps.has(key)) continue;
-                        
+
                         const val = propsMap[key];
-                        
+
                         if (typeof val === 'boolean') {
                             // Check if this boolean property maps to a capability (e.g. focused -> focusable)
                             if (key in booleanPropertyMap) {

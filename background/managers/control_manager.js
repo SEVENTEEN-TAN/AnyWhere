@@ -225,7 +225,17 @@ export class BrowserControlManager {
                         continueBtn.className = 'control-btn continue';
                         continueBtn.innerHTML = '▶ 继续';
                         continueBtn.addEventListener('click', () => {
-                            window.__geminiControlAction = 'continue';
+                            try {
+                                chrome.runtime.sendMessage({ action: 'user_intervention_continue' });
+                                // Visual feedback
+                                continueBtn.innerHTML = '正在恢复...';
+                                continueBtn.disabled = true;
+                                continueBtn.style.opacity = '0.7';
+                                continueBtn.style.cursor = 'wait';
+                            } catch (e) {
+                                console.error('Failed to send continue message:', e);
+                                alert('发送继续信号失败，请刷新页面重试');
+                            }
                         });
 
                         panel.appendChild(status);
@@ -306,7 +316,7 @@ export class BrowserControlManager {
                 this.isControlActive = true;
                 console.log('[ControlManager] Control mode enabled - Page interaction blocked');
                 console.log('[ControlManager] Controlled tabs:', Array.from(this.controlledTabs));
-                this._startControlPolling();
+                this._startControlMessageListener();
             } else {
                 // Already active - just ensure overlay is visible
                 // This handles case where previous task ended but overlay was hidden
@@ -349,9 +359,9 @@ export class BrowserControlManager {
         this.controlledTabs.clear();
 
         // Stop polling
-        if (this._controlPollInterval) {
-            clearInterval(this._controlPollInterval);
-            this._controlPollInterval = null;
+        if (this._controlMessageListener) {
+            chrome.runtime.onMessage.removeListener(this._controlMessageListener);
+            this._controlMessageListener = null;
         }
 
         console.log('[ControlManager] Control mode disabled');
@@ -364,39 +374,25 @@ export class BrowserControlManager {
     }
 
     /**
-     * Poll for user actions (pause/continue button clicks)
-     * This runs continuously when control mode is active
+     * Listen for user actions (pause/continue button clicks)
+     * This runs when control mode is active
      */
-    _startControlPolling() {
-        if (this._controlPollInterval) return;
-        
-        this._controlPollInterval = setInterval(async () => {
-            try {
-                const result = await this.connection.sendCommand("Runtime.evaluate", {
-                    expression: `
-                        (function() {
-                            const action = window.__geminiControlAction;
-                            if (action) {
-                                delete window.__geminiControlAction;
-                                return action;
-                            }
-                            return null;
-                        })()
-                    `,
-                    returnByValue: true
-                });
-                
-                const action = result.result.value;
+    _startControlMessageListener() {
+        if (this._controlMessageListener) return;
+
+        this._controlMessageListener = (request, sender, sendResponse) => {
+            if (request.action === 'GEMINI_CONTROL_ACTION') {
+                const action = request.payload;
                 if (action === 'pause') {
-                    await this._handlePause();
+                    this._handlePause();
                 } else if (action === 'continue') {
-                    await this._handleContinue();
+                    this._handleContinue();
                 }
-            } catch (e) {
-                // Connection lost or page changed
-                console.warn('[ControlManager] Polling error:', e.message);
+            } else if (request.action === 'user_intervention_continue') {
+                this._handleContinue();
             }
-        }, 300);  // Poll every 300ms for responsive UI
+        };
+        chrome.runtime.onMessage.addListener(this._controlMessageListener);
     }
 
     /**
@@ -558,11 +554,21 @@ export class BrowserControlManager {
                                     const continueBtn = document.createElement('button');
                                     continueBtn.className = 'control-btn continue';
                                     continueBtn.innerHTML = '▶ 继续';
-                                    continueBtn.addEventListener('click', () => {
-                                        window.__geminiControlAction = 'continue';
-                                    });
+                        continueBtn.addEventListener('click', () => {
+                            try {
+                                chrome.runtime.sendMessage({ action: 'user_intervention_continue' });
+                                // Visual feedback
+                                continueBtn.innerHTML = '正在恢复...';
+                                continueBtn.disabled = true;
+                                continueBtn.style.opacity = '0.7';
+                                continueBtn.style.cursor = 'wait';
+                            } catch (e) {
+                                console.error('Failed to send continue message:', e);
+                                alert('发送继续信号失败，请刷新页面重试');
+                            }
+                        });
 
-                                    panel.appendChild(status);
+                        panel.appendChild(status);
                                     panel.appendChild(continueBtn);
                                     panel.style.borderTop = '3px solid #ef4444';
                                     panel.style.maxWidth = '700px';
@@ -703,6 +709,7 @@ export class BrowserControlManager {
             if (!this.isControlActive) {
                 await this.controlOverlay.show();
                 this.isControlActive = true;
+                this._startControlMessageListener();
             }
 
             console.log(`[MCP] Executing tool: ${name}`, args);
@@ -1166,6 +1173,10 @@ export class BrowserControlManager {
      * Determine if an error should trigger user intervention
      */
     _shouldRequestUserHelp(error) {
+        if (error?.name === 'NonRetryableError' || error?.code === 'NON_RETRYABLE') {
+            return false;
+        }
+
         const errorMessage = error.message.toLowerCase();
         
         // Skip debugger session errors - these are expected when tab is closed

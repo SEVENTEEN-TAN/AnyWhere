@@ -1,6 +1,7 @@
 
 // background/control/actions/input/mouse.js
 import { BaseActionHandler } from '../base.js';
+import { NonRetryableError } from '../../execution_watchdog.js';
 
 export class MouseActions extends BaseActionHandler {
     constructor(connection, snapshotManager, waitHelper, controlOverlay = null) {
@@ -151,6 +152,44 @@ export class MouseActions extends BaseActionHandler {
                     }
                 });
 
+                // Post-click verification for checkbox/radio and label-controlled inputs
+                try {
+                    await this.cmd("Runtime.callFunctionOn", {
+                        objectId,
+                        functionDeclaration: `function() {
+                            const el = this;
+                            const isInputToggle = el.tagName === 'INPUT' && (el.type === 'checkbox' || el.type === 'radio');
+                            const isLabel = el.tagName === 'LABEL';
+                            const target = isLabel && el.control ? el.control : el;
+                            const isTargetToggle = target && target.tagName === 'INPUT' && (target.type === 'checkbox' || target.type === 'radio');
+                            if (isInputToggle || isTargetToggle) {
+                                const input = isTargetToggle ? target : el;
+                                const before = input.checked;
+                                // Let the click settle
+                                setTimeout(() => {
+                                    const after = input.checked;
+                                    if (before === after) {
+                                        // Enforce toggle via prototype setter to satisfy frameworks
+                                        try {
+                                            const proto = window.HTMLInputElement.prototype;
+                                            const nativeSetter = Object.getOwnPropertyDescriptor(proto, "checked").set;
+                                            nativeSetter.call(input, !before);
+                                        } catch (e) {
+                                            input.checked = !before;
+                                        }
+                                        // Dispatch events to update bindings
+                                        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+                                        input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+                                        input.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+                                    }
+                                }, 50);
+                            }
+                            return true;
+                        }`,
+                        returnByValue: true
+                    });
+                } catch (_) {}
+
                 // P2 Enhancement: Wait for and switch to new tab if opened
                 if (willOpenNewTab && newTabPromise) {
                     try {
@@ -193,18 +232,22 @@ export class MouseActions extends BaseActionHandler {
 
                     try {
                         // Refresh snapshot (P1: will use cache if DOM hasn't changed)
-                        const newSnapshot = await this.snapshotManager.takeSnapshot();
+                        // P2 Fix: Force refresh to ensure we get latest state even if hash collides or logic fails
+                        const newSnapshot = await this.snapshotManager.takeSnapshot({ forceRefresh: true });
                         console.log('[SnapshotRefresh] Snapshot refreshed');
 
-                        // Throw a clear error to inform AI that page has changed
-                        throw new Error(
-                            `Element ${uid} not found in current snapshot. Page may have changed.\n` +
-                            `Snapshot has been refreshed automatically. Please analyze the page again and use a new UID.\n\n` +
-                            `Latest page structure:\n${newSnapshot}`
+                        throw new NonRetryableError(
+                            `Element ${uid} not found in current snapshot. Page has changed.\n` +
+                            `Snapshot has been refreshed automatically.\n` +
+                            `Next step: Re-analyze the latest snapshot and pick a new UID, or use find_by_text/find_by_css/find_by_accessibility.\n\n` +
+                            `Latest page structure:\n${newSnapshot}`,
+                            { uid, refreshed: true }
                         );
                     } catch (refreshError) {
+                        if (refreshError instanceof NonRetryableError) {
+                            throw refreshError;
+                        }
                         console.error('[SnapshotRefresh] Failed to refresh snapshot:', refreshError.message);
-                        // Continue with original error handling
                     }
                 }
 
@@ -408,9 +451,7 @@ export class MouseActions extends BaseActionHandler {
 
                         // Handle Checkbox/Radio toggle logic for frameworks
                         if (this.tagName === 'INPUT' && (this.type === 'checkbox' || this.type === 'radio')) {
-                             // Click often works, but if it fails to update state, we enforce it
-                             // We don't force value here yet, we let click() try first
-                             // But we ensure bubbling is correct
+                             const before = this.checked;
                         }
 
                         // Dispatch mouse events with composed: true for Shadow DOM
@@ -429,9 +470,19 @@ export class MouseActions extends BaseActionHandler {
                         // For radio/checkbox, sometimes click() is intercepted.
                         // If state didn't change, force it via prototype setter
                         if (this.tagName === 'INPUT' && (this.type === 'checkbox' || this.type === 'radio')) {
-                             // Check if we need to force change (if framework blocked it)
-                             // This is risky if the app has complex logic, but safer for automation
-                             // Keeping it simple for now: rely on composed events above
+                             const after = this.checked;
+                             if (after === before) {
+                                 try {
+                                     const proto = window.HTMLInputElement.prototype;
+                                     const nativeSetter = Object.getOwnPropertyDescriptor(proto, "checked").set;
+                                     nativeSetter.call(this, !before);
+                                 } catch (e) {
+                                     this.checked = !before;
+                                 }
+                                 this.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+                                 this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+                                 this.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+                             }
                         }
 
                         // Double click if requested
