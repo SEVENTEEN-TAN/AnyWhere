@@ -37,6 +37,9 @@ export class SessionMessageHandler {
         // --- CONTROL ---
         if (request.action === "CANCEL_PROMPT") {
             const cancelled = this.sessionManager.cancelCurrentRequest();
+            if (this.promptHandler?.builder?.controlManager) {
+                this.promptHandler.builder.controlManager.disableControlMode().catch(() => {});
+            }
             sendResponse({ status: cancelled ? "cancelled" : "no_active_request" });
             return false;
         }

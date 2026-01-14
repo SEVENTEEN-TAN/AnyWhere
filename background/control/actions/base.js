@@ -1,6 +1,7 @@
 
 // background/control/actions/base.js
 import { WaitForHelper } from '../wait_helper.js';
+import { NonRetryableError } from '../execution_watchdog.js';
 
 export class BaseActionHandler {
     constructor(connection, snapshotManager, waitHelper) {
@@ -24,7 +25,15 @@ export class BaseActionHandler {
 
     async getObjectIdFromUid(uid) {
         const backendNodeId = this.snapshotManager.getBackendNodeId(uid);
-        if (!backendNodeId) throw new Error(`Node with uid ${uid} not found in snapshot. Take a snapshot first.`);
+        if (!backendNodeId) {
+            const newSnapshot = await this.snapshotManager.takeSnapshot({ forceRefresh: true });
+            throw new NonRetryableError(
+                `Node with uid ${uid} not found in snapshot. The page may have changed.\n` +
+                `A new snapshot has been taken. Please re-analyze and choose a new UID, or use find_by_text/find_by_css/find_by_accessibility.\n\n` +
+                `Latest page structure:\n${newSnapshot}`,
+                { uid, refreshed: true }
+            );
+        }
 
         // Trigger highlight for visual feedback on interaction
         this.highlight(uid).catch(() => {});

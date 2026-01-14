@@ -31,6 +31,7 @@ export class ToolExecutor {
         const stateStore = this.controlManager.stateStore;
         const recentEvents = stateStore?.getRecentEvents(5) || [];
         const interventionEvent = recentEvents.find(e => e.type === 'page_changed_during_intervention');
+        const interventionNoteEvent = recentEvents.find(e => e.type === 'user_intervention_note' && typeof e.note === 'string' && e.note.trim());
 
         // Record tool input to checkpoint manager (optional)
         if (this.checkpointManager) {
@@ -71,6 +72,9 @@ ${output}`;
                 if (stateStore) {
                     await stateStore.clearUserIntervention();
                 }
+            }
+            if (interventionNoteEvent) {
+                output = `[User Intervention Notes]\n\`\`\`\n${interventionNoteEvent.note.trim()}\n\`\`\`\n\n${output}`;
             }
 
         } catch (err) {

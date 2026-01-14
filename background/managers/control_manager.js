@@ -64,6 +64,55 @@ export class BrowserControlManager {
         });
     }
 
+    async _forceStopControl(reason = 'unknown') {
+        this.isControlActive = false;
+        this.userInterventionMessage = null;
+        this._userPausePromise = null;
+
+        if (this._continueCallback) {
+            try {
+                this._continueCallback({ status: 'stopped', reason });
+            } catch (_) {}
+            this._continueCallback = null;
+        }
+
+        if (this._operationResolve) {
+            try {
+                this._operationResolve({ status: 'stopped', reason });
+            } catch (_) {}
+            this._operationResolve = null;
+        }
+
+        if (this._controlMessageListener) {
+            chrome.runtime.onMessage.removeListener(this._controlMessageListener);
+            this._controlMessageListener = null;
+        }
+
+        const tabIds = new Set(Array.from(this.controlledTabs));
+        if (this.connection?.tabId) tabIds.add(this.connection.tabId);
+        try {
+            const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+            if (activeTab?.id) tabIds.add(activeTab.id);
+        } catch (_) {}
+
+        for (const tabId of tabIds) {
+            try {
+                await chrome.scripting.executeScript({
+                    target: { tabId },
+                    func: () => {
+                        const overlay = document.getElementById('gemini-control-overlay');
+                        const styles = document.getElementById('gemini-control-styles');
+                        if (overlay) overlay.remove();
+                        if (styles) styles.remove();
+                        document.body.classList.remove('gemini-control-active');
+                    }
+                });
+            } catch (_) {}
+        }
+
+        this.controlledTabs.clear();
+    }
+
     /**
      * Setup tab listeners to auto-inject overlay in new tabs during control mode
      */
@@ -125,10 +174,10 @@ export class BrowserControlManager {
             await chrome.scripting.executeScript({
                 target: { tabId },
                 func: (isIntervention, message) => {
-                    // Check if overlay already exists
-                    if (document.getElementById('gemini-control-overlay')) {
-                        return;
-                    }
+                    const existingOverlay = document.getElementById('gemini-control-overlay');
+                    const existingStyles = document.getElementById('gemini-control-styles');
+                    if (existingOverlay) existingOverlay.remove();
+                    if (existingStyles) existingStyles.remove();
 
                     // Create full-screen blocking overlay
                     const overlay = document.createElement('div');
@@ -203,6 +252,42 @@ export class BrowserControlManager {
                             .control-btn.continue:hover {
                                 background: #2563eb;
                             }
+                            .control-btn.pause {
+                                background: #f59e0b;
+                                color: white;
+                            }
+                            .control-btn.pause:hover {
+                                background: #d97706;
+                            }
+                            .control-field {
+                                flex: 1;
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                                color: #1f2937;
+                            }
+                            .control-field-label {
+                                font-size: 13px;
+                                color: #6b7280;
+                            }
+                            .control-note {
+                                width: 100%;
+                                resize: vertical;
+                                min-height: 70px;
+                                max-height: 180px;
+                                padding: 10px 12px;
+                                border: 1px solid #e5e7eb;
+                                border-radius: 8px;
+                                font-size: 13px;
+                                line-height: 1.5;
+                                outline: none;
+                                background: #ffffff;
+                                color: #111827;
+                            }
+                            .control-note:focus {
+                                border-color: #3b82f6;
+                                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+                            }
                             body.gemini-control-active > *:not(#gemini-control-overlay),
                             body.gemini-control-active *:not(#gemini-control-overlay):not(#gemini-control-overlay *) {
                                 pointer-events: none !important;
@@ -216,17 +301,30 @@ export class BrowserControlManager {
                     panel.id = 'gemini-control-panel';
 
                     if (isIntervention) {
-                        // User intervention mode - show message and Continue button
+                        // User intervention mode - show message, note input, and Continue button
+                        const field = document.createElement('div');
+                        field.className = 'control-field';
+
                         const status = document.createElement('div');
-                        status.style.cssText = 'flex: 1; color: #dc2626; font-size: 15px; font-weight: 600; line-height: 1.5;';
+                        status.style.cssText = 'color: #dc2626; font-size: 15px; font-weight: 600; line-height: 1.5;';
                         status.innerHTML = message;
+
+                        const label = document.createElement('div');
+                        label.className = 'control-field-label';
+                        label.textContent = '请简单描述你刚刚做了什么（可选）：';
+
+                        const note = document.createElement('textarea');
+                        note.className = 'control-note';
+                        note.placeholder = '例如：我刚登录了账号 / 我切换到了下一题 / 我关闭了弹窗 / 我改了筛选条件…';
+                        note.id = 'gemini-control-note';
 
                         const continueBtn = document.createElement('button');
                         continueBtn.className = 'control-btn continue';
                         continueBtn.innerHTML = '▶ 继续';
                         continueBtn.addEventListener('click', () => {
                             try {
-                                chrome.runtime.sendMessage({ action: 'user_intervention_continue' });
+                                const noteText = (note.value || '').trim();
+                                chrome.runtime.sendMessage({ action: 'USER_INTERVENTION_CONTINUE', note: noteText });
                                 // Visual feedback
                                 continueBtn.innerHTML = '正在恢复...';
                                 continueBtn.disabled = true;
@@ -238,21 +336,37 @@ export class BrowserControlManager {
                             }
                         });
 
-                        panel.appendChild(status);
+                        field.appendChild(status);
+                        field.appendChild(label);
+                        field.appendChild(note);
+                        panel.appendChild(field);
                         panel.appendChild(continueBtn);
 
                         // Enable page interaction in intervention mode
                         document.body.classList.remove('gemini-control-active');
                     } else {
-                        // Normal control mode - show status indicator
+                        // Normal control mode - show status indicator and Pause button
                         const status = document.createElement('div');
                         status.style.cssText = 'flex: 1; color: #1f2937; font-size: 14px; display: flex; align-items: center; gap: 12px; font-weight: 500;';
                         status.innerHTML = `
                             <span style="width: 10px; height: 10px; background: #3b82f6; border-radius: 50%; animation: pulse 2s ease-in-out infinite;"></span>
-                            <span>AI 正在控制浏览器...</span>
+                            <span id="gemini-control-status-text">AI 正在控制浏览器...</span>
                         `;
 
+                        const pauseBtn = document.createElement('button');
+                        pauseBtn.className = 'control-btn pause';
+                        pauseBtn.innerHTML = '⏸ 暂停';
+                        pauseBtn.addEventListener('click', () => {
+                            try {
+                                chrome.runtime.sendMessage({ action: 'GEMINI_CONTROL_ACTION', payload: 'pause' });
+                            } catch (e) {
+                                console.error('Failed to send pause message:', e);
+                                alert('发送暂停信号失败，请刷新页面重试');
+                            }
+                        });
+
                         panel.appendChild(status);
+                        panel.appendChild(pauseBtn);
 
                         // Disable page interaction in normal mode
                         document.body.classList.add('gemini-control-active');
@@ -312,7 +426,9 @@ export class BrowserControlManager {
             // This ensures overlay appears for each new task
             if (!this.isControlActive) {
                 // First time enabling - start polling
-                await this.controlOverlay.show();
+                if (tab?.id) {
+                    await this._injectOverlayToTab(tab.id);
+                }
                 this.isControlActive = true;
                 console.log('[ControlManager] Control mode enabled - Page interaction blocked');
                 console.log('[ControlManager] Controlled tabs:', Array.from(this.controlledTabs));
@@ -320,9 +436,8 @@ export class BrowserControlManager {
             } else {
                 // Already active - just ensure overlay is visible
                 // This handles case where previous task ended but overlay was hidden
-                if (!this.controlOverlay.isVisible) {
-                    await this.controlOverlay.show();
-                    console.log('[ControlManager] Control overlay re-shown for new task');
+                if (tab?.id) {
+                    await this._injectOverlayToTab(tab.id);
                 }
             }
         }
@@ -330,46 +445,22 @@ export class BrowserControlManager {
 
     async disableControlMode() {
         if (!this.isControlActive) return;
-
-        // Hide overlay on current tab
-        await this.controlOverlay.hide();
-        this.isControlActive = false;
-
-        // Clean up all controlled tabs
-        console.log('[ControlManager] Cleaning up controlled tabs:', Array.from(this.controlledTabs));
-        for (const tabId of this.controlledTabs) {
-            try {
-                await chrome.scripting.executeScript({
-                    target: { tabId },
-                    func: () => {
-                        const overlay = document.getElementById('gemini-control-overlay');
-                        const styles = document.getElementById('gemini-control-styles');
-                        if (overlay) overlay.remove();
-                        if (styles) styles.remove();
-                        document.body.classList.remove('gemini-control-active');
-                    }
-                });
-            } catch (err) {
-                // Tab may have been closed, ignore
-                console.log('[ControlManager] Could not clean up tab:', tabId);
-            }
-        }
-
-        // Clear controlled tabs set
-        this.controlledTabs.clear();
-
-        // Stop polling
-        if (this._controlMessageListener) {
-            chrome.runtime.onMessage.removeListener(this._controlMessageListener);
-            this._controlMessageListener = null;
-        }
-
+        await this._forceStopControl('disabled');
         console.log('[ControlManager] Control mode disabled');
     }
 
     async updateControlStatus(message) {
         if (this.isControlActive) {
-            await this.controlOverlay.updateStatus(message);
+            const tabId = this.connection.tabId;
+            if (!tabId) return;
+            await chrome.scripting.executeScript({
+                target: { tabId },
+                func: (text) => {
+                    const el = document.getElementById('gemini-control-status-text');
+                    if (el) el.textContent = text;
+                },
+                args: [message]
+            });
         }
     }
 
@@ -386,10 +477,10 @@ export class BrowserControlManager {
                 if (action === 'pause') {
                     this._handlePause();
                 } else if (action === 'continue') {
-                    this._handleContinue();
+                    this._handleContinue('');
                 }
-            } else if (request.action === 'user_intervention_continue') {
-                this._handleContinue();
+            } else if (request.action === 'USER_INTERVENTION_CONTINUE') {
+                this._handleContinue(request.note || '');
             }
         };
         chrome.runtime.onMessage.addListener(this._controlMessageListener);
@@ -400,13 +491,13 @@ export class BrowserControlManager {
      */
     async _handlePause() {
         console.log('[ControlManager] User requested pause');
-        await this.controlOverlay.pause();
-
-        // If there's a pending operation, resolve it with pause status
-        if (this._operationResolve) {
-            this._operationResolve({ status: 'paused', reason: 'user_requested' });
-            this._operationResolve = null;
+        if (this._continueCallback) {
+            return;
         }
+
+        this._userPausePromise = this.waitForUserIntervention(
+            '用户已暂停自动化并接管浏览器。\n请手动完成操作后，填写说明并点击“继续”。'
+        );
     }
 
     /**
@@ -440,16 +531,21 @@ export class BrowserControlManager {
      * Handle continue action - Resume AI control
      * Enhanced to detect page changes and restore context
      */
-    async _handleContinue() {
+    async _handleContinue(note = '') {
         console.log('[ControlManager] User requested continue');
 
-        // P4 Optimization: Resume UI immediately so user knows it worked
-        // This hides the "Continue" button and shows "AI is controlling..." immediately
-        await this.controlOverlay.continue();
-
         try {
-            // Take new snapshot to detect changes
-            const newSnapshot = await this.getSnapshot();
+            const trimmedNote = String(note || '').trim();
+            if (trimmedNote) {
+                await this.stateStore.appendEvent({
+                    type: 'user_intervention_note',
+                    note: trimmedNote,
+                    timestamp: Date.now()
+                });
+            }
+
+            // Take fresh snapshot to rebuild context after intervention
+            const newSnapshot = await this.snapshotManager.takeSnapshot({ forceRefresh: true });
             const context = this.stateStore.getCurrentContext();
 
             // Check if page changed during intervention
@@ -469,23 +565,32 @@ export class BrowserControlManager {
                         timestamp: Date.now()
                     });
                 }
+            } else if (newSnapshot) {
+                const newHash = this.stateStore._hashSnapshot(newSnapshot);
+                await this.stateStore.updateSnapshot(newSnapshot, newHash);
             }
 
             // Clear user intervention flag
             await this.stateStore.clearUserIntervention();
 
-            // Resume control overlay
-            await this.controlOverlay.continue();
+            // Clear intervention message
+            this.userInterventionMessage = null;
+
+            // Re-inject normal overlay to all controlled tabs
+            for (const tabId of this.controlledTabs) {
+                await this._injectOverlayToTab(tabId);
+            }
+
+            this._userPausePromise = null;
 
             // Signal to resume operations
             if (this._continueCallback) {
-                this._continueCallback();
+                this._continueCallback({ note: trimmedNote, snapshot: newSnapshot });
                 this._continueCallback = null;
             }
         } catch (error) {
             console.error('[ControlManager] Failed to resume automation:', error);
-            // If resume failed (e.g. snapshot failed), we must re-pause UI so user can try again
-            await this.controlOverlay.pause(`Resumption failed: ${error.message}. Please fix the issue and try again.`);
+            await this.waitForUserIntervention(`恢复失败：${error.message}\n请修正问题后点击继续。`);
         }
     }
 
@@ -496,6 +601,9 @@ export class BrowserControlManager {
      */
     async waitForUserIntervention(message) {
         console.log('[ControlManager] Waiting for user intervention:', message);
+        if (this._continueCallback) {
+            return new Promise((resolve) => resolve({ status: 'already_waiting' }));
+        }
 
         // Save checkpoint before pausing
         const snapshot = await this.getSnapshot();
@@ -527,79 +635,21 @@ export class BrowserControlManager {
 
         // Store message for new tabs
         this.userInterventionMessage = formattedMessage;
-
-        // Auto-pause with formatted message on current tab
-        await this.controlOverlay.pause(formattedMessage);
-
-        // Update all other controlled tabs to show intervention message
+        // Ensure overlay exists in intervention mode on all controlled tabs
         const currentTabId = this.connection.tabId;
+        if (currentTabId) {
+            this.controlledTabs.add(currentTabId);
+        }
         for (const tabId of this.controlledTabs) {
-            if (tabId !== currentTabId) {
-                try {
-                    // Update existing overlay or inject new one
-                    await chrome.scripting.executeScript({
-                        target: { tabId },
-                        func: (message) => {
-                            const overlay = document.getElementById('gemini-control-overlay');
-                            if (overlay) {
-                                // Update existing overlay
-                                const panel = document.getElementById('gemini-control-panel');
-                                if (panel) {
-                                    panel.innerHTML = '';
-
-                                    const status = document.createElement('div');
-                                    status.style.cssText = 'flex: 1; color: #dc2626; font-size: 15px; font-weight: 600; line-height: 1.5;';
-                                    status.innerHTML = message;
-
-                                    const continueBtn = document.createElement('button');
-                                    continueBtn.className = 'control-btn continue';
-                                    continueBtn.innerHTML = '▶ 继续';
-                        continueBtn.addEventListener('click', () => {
-                            try {
-                                chrome.runtime.sendMessage({ action: 'user_intervention_continue' });
-                                // Visual feedback
-                                continueBtn.innerHTML = '正在恢复...';
-                                continueBtn.disabled = true;
-                                continueBtn.style.opacity = '0.7';
-                                continueBtn.style.cursor = 'wait';
-                            } catch (e) {
-                                console.error('Failed to send continue message:', e);
-                                alert('发送继续信号失败，请刷新页面重试');
-                            }
-                        });
-
-                        panel.appendChild(status);
-                                    panel.appendChild(continueBtn);
-                                    panel.style.borderTop = '3px solid #ef4444';
-                                    panel.style.maxWidth = '700px';
-
-                                    // Enable page interaction
-                                    document.body.classList.remove('gemini-control-active');
-                                    overlay.style.backdropFilter = 'none';
-                                    overlay.style.animation = 'none';
-                                    overlay.style.pointerEvents = 'none';
-                                    panel.style.pointerEvents = 'auto';
-                                }
-                            }
-                        },
-                        args: [formattedMessage]
-                    });
-                } catch (err) {
-                    console.warn('[ControlManager] Failed to update tab:', tabId, err.message);
-                }
-            }
+            await this._injectOverlayToTab(tabId);
         }
 
         console.log('[ControlManager] User intervention message shown on all tabs');
 
         // Wait for continue button
-        // Note: _handleContinue will call controlOverlay.continue() before invoking this callback
         return new Promise((resolve) => {
-            this._continueCallback = () => {
+            this._continueCallback = ({ note } = {}) => {
                 console.log('[ControlManager] User intervention completed, resuming AI control');
-
-                // Clear intervention message
-                this.userInterventionMessage = null;
 
                 // Check if page changed
                 const events = this.stateStore.getRecentEvents(5);
@@ -608,7 +658,8 @@ export class BrowserControlManager {
                 resolve({
                     status: 'continued',
                     pageChanged: !!pageChangedEvent,
-                    events
+                    events,
+                    note: typeof note === 'string' ? note : ''
                 });
             };
         });
@@ -705,9 +756,18 @@ export class BrowserControlManager {
             const success = await this.ensureConnection();
             if (!success) return "Error: No active tab found or restricted URL.";
 
+            if (this._userPausePromise) {
+                await this._userPausePromise;
+                this._userPausePromise = null;
+            }
+
             // Show control overlay on first tool execution
             if (!this.isControlActive) {
-                await this.controlOverlay.show();
+                const currentTabId = this.connection.tabId;
+                if (currentTabId) {
+                    this.controlledTabs.add(currentTabId);
+                    await this._injectOverlayToTab(currentTabId);
+                }
                 this.isControlActive = true;
                 this._startControlMessageListener();
             }
