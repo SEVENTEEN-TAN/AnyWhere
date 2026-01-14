@@ -99,6 +99,7 @@ export class PromptController {
             text: text,
             files: files, // Send full file objects array
             model: selectedModel,
+            triggerSource: this.app.nextPromptTriggerSource || null,
             includePageContext: includePageContext,
             // Pass pre-selected content from element picker (if available)
             pageContextContent: includePageContext && this.app.pickedElementContent ? this.app.pickedElementContent : null,
@@ -118,6 +119,7 @@ export class PromptController {
         console.log("[PromptController] =====================================\n");
 
         sendToBackground(payload);
+        this.app.nextPromptTriggerSource = null;
     }
 
     cancel() {

@@ -237,13 +237,7 @@ export function bindAppEvents(app, ui, setResizeRef) {
         if (text) {
             const inputFn = document.getElementById('prompt');
             if (inputFn) {
-                // 1. Enable Page Context silently if not already enabled
-                // Don't trigger element picker - just activate the context for follow-up questions
-                if (!app.pageContextActive) {
-                    app.setPageContext(true, null);
-                }
-
-                // 2. Fill and Send
+                app.nextPromptTriggerSource = 'FOLLOW_UP';
                 inputFn.value = text;
                 const sendBtn = document.getElementById('send');
                 if (sendBtn) sendBtn.click();

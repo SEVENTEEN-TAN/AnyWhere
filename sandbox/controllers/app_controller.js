@@ -20,6 +20,7 @@ export class AppController {
         this.isGenerating = false;
         this.pageContextActive = false;
         this.browserControlActive = false;
+        this.nextPromptTriggerSource = null;
 
         // Sidebar Restore Behavior: 'auto', 'restore', 'new'
         this.sidebarRestoreBehavior = 'auto';
